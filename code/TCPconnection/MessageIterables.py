@@ -39,7 +39,7 @@ class IterMessageList(MessageIterable):
             raise ITERABLE_ACCESS_OUTOFRANGE
 
     def has_next(self): 
-        if(self.__list_len - 1  > self.__current_list_index): 
+        if(self.__list_len > self.__current_list_index): 
             return True
         else: 
             return False 
