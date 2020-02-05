@@ -15,18 +15,19 @@ class TCPcomm(threading.Thread):
         self.__ip = '169.254.16.78'
         self.__port = 5555
         self.__data_ready_list = []
-        self.__data_lock = threading.Lock()
+        # self.__data_lock = threading.Lock()
         self.__port_listener_list = []
         
 
     def read_buffer(self): 
         ## This function is used regularly in a thread to read the receive buffer of 
         #   the TCP port. 
-        while(True):         
+        
+        while(True): 
             try:            
-                with self.__data_lock: 
-                    data = self.__s.recv(self.__buffer_size)
-                    self.__data_ready_list.append(data)
+                # with self.__data_lock: 
+                data = self.__s.recv(self.__buffer_size)
+                self.__data_ready_list.append(data)
                 self.inform_listeners()
             except:             
                 pass 
@@ -41,8 +42,8 @@ class TCPcomm(threading.Thread):
         
         try: 
             while(message_object.has_next()):
-                current_message = message_object.next()
-                print(current_message)
+                current_message = message_object.next().get_cmd()
+                # print(current_message)
                 self.__s.send(current_message.encode())        
         except: 
             # pass
@@ -52,8 +53,8 @@ class TCPcomm(threading.Thread):
     def subscribe_listener(self , listener): 
         ## A listener is an object that implements an inform() method
         ## and can reuest subscription to the tcp comm object
-        with self.__data_lock: 
-            self.__port_listener_list.append(listener)
+        # with self.__data_lock: 
+        self.__port_listener_list.append(listener)
 
     def inform_listeners(self): 
         ## in this function, the listener objects that have subscribed to the tcp comm object, 
@@ -64,9 +65,9 @@ class TCPcomm(threading.Thread):
     def get_all_messages(self): 
         ## The listener has to call this function to get all of the received messages, 
         #  This function is threadsafe
-        with self.__data_lock: 
-            data = self.__data_ready_list
-            self.__data_ready_list = []
+        # with self.__data_lock: 
+        data = self.__data_ready_list
+        self.__data_ready_list = []
         
         return data
 
