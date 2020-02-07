@@ -3,7 +3,7 @@ import os
 
 def add_subfolder_to_path( project_base_folder):        
     ## checking the input to the make file 
-    current_folder = sys.argv[0]
+    # current_folder = sys.argv[0]
 
     # if(len(sys.argv) > 1): 
     #     run_file = sys.argv[1]

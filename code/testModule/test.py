@@ -54,6 +54,7 @@ if __name__ == "__main__":
     try: 
         while(True): 
             data = tcp_listener.get_first_in_queue()
+            # print(data)
             if(data != None): 
                 oscill_data_index = []
                 oscill_data = []
@@ -65,8 +66,10 @@ if __name__ == "__main__":
                 # tcp_obj.send_mesage(recurr_mi)
                 data_ind = ch4_dataholder.get_data_idx()
                 data_val = ch4_dataholder.get_data_value()
+                
                 if(data_ind != None and data_val != None): 
                     plt.plot(data_ind , data_val)
+                    plt.show()
                 # print("a")
     except KeyboardInterrupt: 
         tcp_obj.close_conn()
