@@ -4,8 +4,9 @@ import enum
 import MessageIterables as mes_iter
 import time 
 from inspect import getframeinfo , currentframe
-
-
+import typing
+import doorbell.DoorBell as db
+import queue
 
 class TCPcomm(threading.Thread):    
 
@@ -13,12 +14,13 @@ class TCPcomm(threading.Thread):
   
     def __init__(self): 
         self.__buffer_size = 250000
-        self.__ip = '169.254.16.78'
+        # self.__ip = '169.254.16.78'
+        self.__ip = '169.254.16.79'
         self.__port = 5555
         self.__data_ready_list = []
         self.__data_lock = threading.Lock()
         self.__port_listener_list = []
-        
+        self.__recv_data_queue = queue.Queue()
 
     def read_buffer(self): 
         ## This function is used regularly in a thread to read the receive buffer of 
@@ -39,7 +41,8 @@ class TCPcomm(threading.Thread):
                 self.inform_listeners()
 
             except:              
-                pass 
+                pass
+                # raise
 
 
             
@@ -53,8 +56,65 @@ class TCPcomm(threading.Thread):
                 current_message = message_object.next().get_cmd()
                 self.__s.send(current_message.encode())        
         except: 
-            # pass
-            raise 
+            # raise
+            pass 
+
+    def send_receive_thread(self , doorbell_obj:db.DoorBell):
+        ## assume that if data is not null, it should be from message iterable type
+        ## wait until data in the doorbell is taken by another thread
+        while(True): 
+            # this function needs to be put in a separate thread
+            while(doorbell_obj.is_data_new() == False): 
+                print("wiat for new data in doorbell")
+                pass 
+            
+            mi = doorbell_obj.pick_data_from_doorbell()
+
+            ## the message iterator (mi) is filled with instructions of rigol
+            if(mi != None): 
+                while(mi.has_next()): 
+                    next_instr = mi.next()
+                    command_str = next_instr.get_cmd()
+                    self.__s.send(command_str.encode())
+                    print(command_str)
+                    if(next_instr.needs_answer()):
+                        # time.sleep(0.1)
+                        try: 
+                            data = self.__s.recv(self.__buffer_size)
+                            self.__recv_data_queue.put(data)
+                            # print(data)
+                        except: 
+                            time.sleep(0.1)
+                            print("missed first wait try")
+                            print("")
+                            try: 
+                                data = self.__s.recv(self.__buffer_size)
+                                self.__recv_data_queue.put(data)
+                                # print(data)
+                            except: 
+                                time.sleep(0.200)
+                                print("missed second wait try")
+                                print("")
+                                try: 
+                                    data = self.__s.recv(self.__buffer_size)
+                                    self.__recv_data_queue.put(data)
+                                    # print(data)
+                                except:
+                                    print("missed third wait try")
+                                    print("") 
+                                    raise
+                        # print("message received")
+                        # print(data)
+                        
+
+            print("end send") 
+            print("")
+
+    def get_last_data(self): 
+        if(not self.__recv_data_queue.empty()): 
+            return self.__recv_data_queue.get()
+        else: 
+            return None 
 
     ## Implementation of observer pattern
     def subscribe_listener(self , listener): 
@@ -68,8 +128,10 @@ class TCPcomm(threading.Thread):
         #  are informed that a new data is put in the list
         
         for listener in self.__port_listener_list: 
+            # listener.empty_and_inform()
             listener.inform()
-    
+            # listener.inform_last()
+
     def get_all_messages(self): 
         ## The listener has to call this function to get all of the received messages, 
         #  This function is threadsafe
@@ -83,7 +145,7 @@ class TCPcomm(threading.Thread):
     def establish_conn(self): 
         try: 
             self.__s = socket.socket(socket.AF_INET , socket.SOCK_STREAM)
-            self.__s.setblocking(1)           
+            self.__s.setblocking(1)          
             self.__s.connect((self.__ip , self.__port))
             self.__s.settimeout(self.TIME_OUT)
         except: 
