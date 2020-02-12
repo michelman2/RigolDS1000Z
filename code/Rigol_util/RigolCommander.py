@@ -13,7 +13,7 @@ class RigolCommander:
 
     def initalize_data_query_byte(self , chann): 
         message_list = []
-        # message_list.append(self.scpi_lib.identify_device())
+        message_list.append(self.scpi_lib.identify_device())
         message_list.append(self.scpi_lib.run())
         message_list.append(self.scpi_lib.set_waveform_source(chann))
         message_list.append(self.scpi_lib.set_waveform_mode(rscpi.RIGOL_WAVEFORM_MODE.NORMAL))
