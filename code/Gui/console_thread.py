@@ -22,7 +22,16 @@ from doorbell import DoorBell as db
 
 
 class ConsoleControl: 
-    global doorbell_obj
+    """ 
+        A wrapper class to put the console application and its functionality 
+        in a single object. This class launches threads to handle tcp connection. 
+
+        Can be used as the main thread when using none-gui applications
+        Can be launched in a second thread (the run method) when using gui applications
+
+    """
+    
+    global doorbell_obj # doorbell objet is used between the thread running this class and the thread handling tcp connections
 
 
 
@@ -59,7 +68,6 @@ class ConsoleControl:
             while(True):
                 if(self.pause_tcp_connection):                     
                     while(self.doorbell_obj.is_data_new()):
-                        # print("inside wait for doorbell to be seen")
                         pass 
                     cmd_initiate_oscilloscope = self.rigol_commander.initalize_data_query_byte(rs.RIGOL_CHANNEL_IDX.CH4)
                     cmd_ask_data_oscilloscope = self.rigol_commander.ask_oscilloscope_for_data()
@@ -80,6 +88,9 @@ class ConsoleControl:
 
     def get_data(self): 
         return self.tcp_connection.get_last_data()
+
+    def get_data_and_empty_queue(self): 
+        return self.tcp_connection.get_data_and_empty_queue() 
 
     def pause_tcp_connection(self): 
         self.__pause_tcp_conn = True

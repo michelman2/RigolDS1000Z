@@ -1,6 +1,13 @@
 import enum 
 import abc
 
+
+"""
+    classes containing lists of iterable messages
+    can be replaced with a queue of proper type
+
+"""
+
 ## abstract class as an interface for iterating through message lists
 #  Any class implementing this has to be iterable
 class MessageIterable(abc.ABC): 
@@ -9,19 +16,20 @@ class MessageIterable(abc.ABC):
     def has_next(self): 
         pass 
 
-## iterator classes for getting messages
-class IterSingleMessage(MessageIterable): 
-    def __init__(self , message): 
-        self.__message = message
 
-    def next(self): 
-        return self.__message
     
-class IterMessageList(MessageIterable): 
+class IterMessageList(MessageIterable):
+    """ 
+        returns iterable lists of messages
+    """ 
     __list_len = 0 
     __current_list_index = 0 
 
-    def __init__(self , message): 
+
+    def __init__(self , message:list): 
+        """
+            initializing with a message list 
+        """
         self.__message = message
 
         if(not isinstance(message , list)): 
@@ -31,12 +39,19 @@ class IterMessageList(MessageIterable):
 
 
     def append(self , message_iterable): 
+        """
+            appends a message list to the current one
+            used to join two message lists
+        """
         while(message_iterable.has_next()): 
             self.__message.append(message_iterable.next())
             self.__list_len += 1
 
     
-    def next(self): 
+    def next(self)->str: 
+        """
+            getting the next element of the list
+        """
         if(self.__list_len > self.__current_list_index): 
             message = self.__message[self.__current_list_index]
             self.__current_list_index = self.__current_list_index + 1
@@ -44,46 +59,22 @@ class IterMessageList(MessageIterable):
         else: 
             raise ITERABLE_ACCESS_OUTOFRANGE
 
-    def has_next(self): 
+    def has_next(self):
+        """
+            check to see if the iterator has a next element
+        """
         if(self.__list_len > self.__current_list_index): 
             return True
         else: 
             return False 
 
-    def reset(self): 
+    def reset(self):
+        """
+            reset the iterator to its initial state
+        """ 
         self.__current_list_index = 0 
 
     
-
-
-# class IterMessageStack(MessageIterable):     
-    
-#     __message  = []
-
-#     def __init__(self, message_list): 
-#         self.__message = message_list
-#         if(not isinstance(message_list , list)): 
-#             raise EXC_INVALID_ARG
-        
-
-#     def next(self): 
-#         if(len(self.__message) > 0): 
-#             current_message = self.__message[0]
-#             self.__message.remove(self.__message[0])
-#             return current_message
-#         else: 
-#             raise ITERABLE_ACCESS_OUTOFRANGE 
-
-#     def has_next(self): 
-#         if(len(self.__message) > 0 ): 
-#             return True
-#         else: 
-#             return False 
-
-#     def append(self , message_iterable): 
-#         while(message_iterable.has_next()): 
-#             self.__message.append(message_iterable.next())
-            
 
 
 class EXC_INVALID_ARG(Exception): 

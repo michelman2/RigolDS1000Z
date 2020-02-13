@@ -4,7 +4,17 @@ import platform
 import socket
 import threading 
 
+
+"""
+    searching tools for finding the ip address of oscilloscope
+    too slow to be done every time
+""" 
+
 class IPIterator: 
+    """
+        Tools for iterating in ip ranges 
+    """
+
     def __init__(self): 
         if(platform.system() == "Windows"): 
             ipcommand = "ipconfig"
@@ -32,6 +42,10 @@ class IPIterator:
         
 
     def init(self): 
+        """ 
+            searching the response of ifconfig to find ethernet connection 
+            ip and submask
+        """
         found_fields = 0
         for line in self.lines:     
             if(line.lower().find("ethernet") != -1): 
@@ -51,12 +65,21 @@ class IPIterator:
 
 
     def find_ip(self , line:str)->re.Match: 
+        """
+            looking for ip addresses in the lines found from ethernet fields
+        """
         obj = re.search(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})" , line).group()
         split_ip = obj.split(".")
         int_list_ip = [int(x) for x in split_ip]
         return int_list_ip
 
-    def __make_ip(self,ip_list, idx , ip_part)->list: 
+    def __make_ip(self,ip_list, idx , ip_part)->list:
+        """
+            generate an ip based on the input parameters
+            ip_list is the initial ip 
+            idx: the index of the ip field 0 to 3
+            ip_part: ip value of the part whose index is given in idx
+        """
         if(self.sub_mask.get()[idx] == 255): 
             ip_list[idx] = self.ipv4.get()[idx]
         else: 
@@ -66,6 +89,10 @@ class IPIterator:
 
 
     def __tcp_test(self , ip, port_number, delay): 
+        """
+            checks an ip number and port for connection
+
+        """
         TCPsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         TCPsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         TCPsock.setblocking(0)

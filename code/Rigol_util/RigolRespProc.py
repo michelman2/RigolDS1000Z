@@ -1,12 +1,22 @@
 class RigolRespProc: 
 
-    def __init__(self , binary_resp): 
+    """ 
+        Helper object to keep methods related to processing repnses returned by 
+        Rigol
+    """
+
+    def __init__(self , binary_resp:bytes): 
+        """ 
+            setting a binary message
+        """
         self.__binary_resp = binary_resp 
 
-    def getHeader(self): 
-        ## This class is made when only one command of type WAVEFORM:DATA is considered 
-        # so the headerfile looks like this: 
-        # #Nxxxxxxx where x repeats N times
+    def getHeader(self)->tuple: 
+        """
+            extracting data from response to waveform:data
+            so the headerfile looks like this: 
+            Nxxxxxxx where x repeats N times
+        """
         self._data_header_sharp_sign = self.__binary_resp[0]        
         if(chr(self._data_header_sharp_sign) == '#'):             
             self._data_header_N = self.__binary_resp[1]

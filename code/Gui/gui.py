@@ -22,6 +22,13 @@ from doorbell import DoorBell as db
 import console_thread as ct
 import typing
 
+
+""" 
+    script handling making of gui. The control part (console) 
+    is launched in a separate thread
+"""
+
+
 global UPDATE_GRAPH_AFTER
 UPDATE_GRAPH_AFTER = 20
 
@@ -43,7 +50,8 @@ class mclass:
     def plot (self):
         self.window.after(UPDATE_GRAPH_AFTER , self.plot)
          
-        data = self.observable.get_data()
+        # data = self.observable.get_data()
+        data = self.observable.get_data_and_empty_queue()
         if(data != None): 
             
             rigol_resp = rrp.RigolRespProc(data)

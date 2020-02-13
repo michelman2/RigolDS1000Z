@@ -1,7 +1,15 @@
 import socket, threading
 
 
+""" 
+    finds the listening ports on a given ip address
+
+"""
+
 def TCP_connect(ip, port_number, delay, output):
+    """
+        checks connection for a given port number on the defined ip address
+    """
     TCPsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     TCPsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     TCPsock.settimeout(delay)
@@ -19,6 +27,11 @@ def TCP_connect(ip, port_number, delay, output):
 
 
 def scan_ports(host_ip, delay):
+    """
+        scanning ports in a given range for a certain ip (host_ip)
+        threads are lauched to help the process
+        too slow to be done repeatedly
+    """
 
     threads = []        # To run TCP_connect concurrently
     output = {}         # For printing purposes
@@ -55,6 +68,9 @@ def scan_ports(host_ip, delay):
 
 
 def main():
+    """ 
+        starts sweeping over ip addresses
+    """
     host_ip = "169.254.16.78"
     # host_ip = input("Enter host IP: ")
     # delay = int(input("How many seconds the socket is going to wait until timeout: "))   

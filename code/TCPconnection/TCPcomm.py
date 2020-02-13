@@ -9,13 +9,18 @@ import doorbell.DoorBell as db
 import queue
 
 class TCPcomm(threading.Thread):    
-
+    """
+        manages tcp communication operations
+    """
     TIME_OUT = 0.00
   
-    def __init__(self): 
+    def __init__(self):
+        """
+            initializing network connections and settings
+            the ip is the autoip assigned to the rigol oscilloscope 
+        """
         self.__buffer_size = 250000
-        self.__ip = '169.254.16.78'
-        # self.__ip = '169.254.16.79'
+        self.__ip = '169.254.16.79'
         self.__port = 5555
         self.__data_ready_list = []
         self.__data_lock = threading.Lock()
@@ -23,8 +28,10 @@ class TCPcomm(threading.Thread):
         self.__recv_data_queue = queue.Queue()
 
     def read_buffer(self): 
-        ## This function is used regularly in a thread to read the receive buffer of 
-        #   the TCP port.         
+        """
+            checks the buffer for new information
+            holds a lock over local data when reading the tcp buffer            
+        """    
         while(True): 
             try:     
                 # print("in read_buffer")       
@@ -38,7 +45,7 @@ class TCPcomm(threading.Thread):
         ### CAREFUL! 
         ### putting inform listeners will make a lock loop, in which the program will stop 
 
-                self.inform_listeners()
+                # self.inform_listeners()
 
             except:              
                 pass
@@ -46,10 +53,10 @@ class TCPcomm(threading.Thread):
 
 
             
-    def send_mesage(self , message_object): 
-        ## sending message is not put in a thread, it is done in the main thread
-        ## but receiving a response and checking the buffer is done in a separate thread 
-        #  from the run(self) funtion
+    def send_mesage(self , message_object:mes_iter.IterMessageList): 
+        """
+            sends a message by reading from message iterables 
+        """
         
         try: 
             while(message_object.has_next()):            
@@ -60,12 +67,15 @@ class TCPcomm(threading.Thread):
             pass 
 
     def send_receive_thread(self , doorbell_obj:db.DoorBell):
-        ## assume that if data is not null, it should be from message iterable type
-        ## wait until data in the doorbell is taken by another thread
+        """
+            sends a message and waits for a response
+            should be put in a separate thread
+            if the doorbell object has any new message it activates, otherwise the operation is ignored
+        """
+
         while(True): 
-            # this function needs to be put in a separate thread
+            
             while(doorbell_obj.is_data_new() == False): 
-                print("wiat for new data in doorbell")
                 pass 
             
             mi = doorbell_obj.pick_data_from_doorbell()
@@ -78,33 +88,29 @@ class TCPcomm(threading.Thread):
                     self.__s.send(command_str.encode())
                     print(command_str)
                     if(next_instr.needs_answer()):
-                        # time.sleep(0.1)
+                        
                         try: 
                             data = self.__s.recv(self.__buffer_size)
                             self.__recv_data_queue.put(data)
-                            # print(data)
+                            
                         except: 
                             time.sleep(0.1)
                             print("missed first wait try")
-                            print("")
                             try: 
                                 data = self.__s.recv(self.__buffer_size)
                                 self.__recv_data_queue.put(data)
-                                # print(data)
+                                
                             except: 
                                 time.sleep(0.200)
                                 print("missed second wait try")
-                                print("")
                                 try: 
                                     data = self.__s.recv(self.__buffer_size)
                                     self.__recv_data_queue.put(data)
-                                    # print(data)
+                                    
                                 except:
                                     print("missed third wait try")
                                     print("") 
-                                    raise
-                        # print("message received")
-                        # print(data)
+                                    
                         
 
             print("end send") 
@@ -141,6 +147,10 @@ class TCPcomm(threading.Thread):
         
         return data
 
+    def get_data_and_empty_queue(self): 
+        last_data = self.get_last_data()
+        self.__recv_data_queue.queue.clear()
+        return last_data
 
     def establish_conn(self): 
         try: 

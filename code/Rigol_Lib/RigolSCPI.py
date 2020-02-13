@@ -728,7 +728,7 @@ class RIGOL_CHANNEL_IDX(enum.Enum):
     CH4 = 4
 
     def get_string(self): 
-        return str(self.value)
+        return "channel{}".format(self.value)
 
 # check values for the model of rigol 
 class RIGOL_BW_OPTIONS(enum.Enum): 
