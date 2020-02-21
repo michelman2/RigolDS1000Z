@@ -20,7 +20,7 @@ class TCPcomm(threading.Thread):
             the ip is the autoip assigned to the rigol oscilloscope 
         """
         self.__buffer_size = 250000
-        self.__ip = '169.254.16.79'
+        self.__ip = '169.254.16.78'
         self.__port = 5555
         self.__data_ready_list = []
         self.__data_lock = threading.Lock()
