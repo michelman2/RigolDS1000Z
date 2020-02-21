@@ -50,8 +50,13 @@ class mclass:
     def plot (self):
         self.window.after(UPDATE_GRAPH_AFTER , self.plot)
          
-        # data = self.observable.get_data()
-        data = self.observable.get_data_and_empty_queue()
+        
+        command_obj = self.observable.get_data_and_empty_queue()
+        if(command_obj != None): 
+            data = command_obj.get_answer()
+        else: 
+            data = None
+            
         if(data != None): 
             
             rigol_resp = rrp.RigolRespProc(data)

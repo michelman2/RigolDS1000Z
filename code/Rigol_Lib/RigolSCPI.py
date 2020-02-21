@@ -1,6 +1,7 @@
 import enum 
 
 class cmdObj: 
+    answer = ""
     def __init__(self , cmd_string, needs_answer): 
         self.__cmd = cmd_string
         self.__needs_answer = needs_answer
@@ -10,6 +11,14 @@ class cmdObj:
 
     def get_cmd(self): 
         return self.__cmd
+
+
+    def set_answer(self , answer:str):
+        self.answer = answer
+
+    def get_answer(self): 
+        return self.answer
+        
 
 
 

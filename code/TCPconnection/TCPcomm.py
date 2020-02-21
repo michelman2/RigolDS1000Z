@@ -27,44 +27,38 @@ class TCPcomm(threading.Thread):
         self.__port_listener_list = []
         self.__recv_data_queue = queue.Queue()
 
-    def read_buffer(self): 
-        """
-            checks the buffer for new information
-            holds a lock over local data when reading the tcp buffer            
-        """    
-        while(True): 
-            try:     
-                # print("in read_buffer")       
-                with self.__data_lock: 
-                    data = self.__s.recv(self.__buffer_size)
-                    # print("after receive buffer")
-                    self.__data_ready_list.append(data)
-                    # print("after append data list")
+    # def read_buffer(self): 
+    #     """
+    #         checks the buffer for new information
+    #         holds a lock over local data when reading the tcp buffer            
+    #     """    
+    #     while(True): 
+    #         try:     
+    #             # print("in read_buffer")       
+    #             with self.__data_lock: 
+    #                 data = self.__s.recv(self.__buffer_size)
+    #                 # print("after receive buffer")
+    #                 self.__data_ready_list.append(data)
+    #                 # print("after append data list")
 
-
-        ### CAREFUL! 
-        ### putting inform listeners will make a lock loop, in which the program will stop 
-
-                # self.inform_listeners()
-
-            except:              
-                pass
-                # raise
+    #         except:              
+    #             pass
+    #             # raise
 
 
             
-    def send_mesage(self , message_object:mes_iter.IterMessageList): 
-        """
-            sends a message by reading from message iterables 
-        """
+    # def send_mesage(self , message_object:mes_iter.IterMessageList): 
+    #     """
+    #         sends a message by reading from message iterables 
+    #     """
         
-        try: 
-            while(message_object.has_next()):            
-                current_message = message_object.next().get_cmd()
-                self.__s.send(current_message.encode())        
-        except: 
-            # raise
-            pass 
+    #     try: 
+    #         while(message_object.has_next()):            
+    #             current_message = message_object.next().get_cmd()
+    #             self.__s.send(current_message.encode())        
+    #     except: 
+    #         # raise
+    #         pass 
 
     def send_receive_thread(self , doorbell_obj:db.DoorBell):
         """
@@ -91,20 +85,26 @@ class TCPcomm(threading.Thread):
                         
                         try: 
                             data = self.__s.recv(self.__buffer_size)
-                            self.__recv_data_queue.put(data)
+                            next_instr.set_answer(data)
+                            # self.__recv_data_queue.put(data)
+                            self.__recv_data_queue.put(next_instr)
                             
                         except: 
                             time.sleep(0.1)
                             print("missed first wait try")
                             try: 
                                 data = self.__s.recv(self.__buffer_size)
-                                self.__recv_data_queue.put(data)
+                                next_instr.set_answer(data)
+                                # self.__recv_data_queue.put(data)
+                                self.__recv_data_queue.put(next_instr)
                                 
                             except: 
                                 time.sleep(0.200)
                                 print("missed second wait try")
                                 try: 
                                     data = self.__s.recv(self.__buffer_size)
+                                    next_instr.set_answer(data)
+                                    # self.__recv_data_queue.put(data)
                                     self.__recv_data_queue.put(data)
                                     
                                 except:

@@ -19,6 +19,7 @@ from Rigol_util import channelDataKeeper as cld
 from Rigol_util import Rigol_plotter as Rigol_plotter
 from Rigol_util import RigolCommander as rc
 from doorbell import DoorBell as db 
+import time
 
 
 class ConsoleControl: 
@@ -69,13 +70,14 @@ class ConsoleControl:
                 if(self.pause_tcp_connection):                     
                     while(self.doorbell_obj.is_data_new()):
                         pass 
-                    cmd_initiate_oscilloscope = self.rigol_commander.initalize_data_query_byte(rs.RIGOL_CHANNEL_IDX.CH4)
+                    # cmd_initiate_oscilloscope = self.rigol_commander.initalize_data_query_byte(rs.RIGOL_CHANNEL_IDX.CH4)
                     cmd_ask_data_oscilloscope = self.rigol_commander.ask_oscilloscope_for_data()
-                    cmd_initiate_oscilloscope.append(cmd_ask_data_oscilloscope)
-                    self.doorbell_obj.put_data_to_doorbell(cmd_initiate_oscilloscope)
+                
+                    self.doorbell_obj.put_data_to_doorbell(cmd_ask_data_oscilloscope)
+
+                    ## add time delay to reduce cpu usage of the program
+                    time.sleep(0.5)
                     
-                    # data = self.tcp_connection.get_last_data()
-                    # print(data)
 
         
 
