@@ -23,7 +23,7 @@ class RigolCommander:
                 5) set waveform return mode 
         """
         message_list = []
-        message_list.append(self.scpi_lib.identify_device())
+        # message_list.append(self.scpi_lib.identify_device())
         message_list.append(self.scpi_lib.run())
         message_list.append(self.scpi_lib.set_waveform_source(chann))
         message_list.append(self.scpi_lib.set_waveform_mode(rscpi.RIGOL_WAVEFORM_MODE.NORMAL))
@@ -38,8 +38,13 @@ class RigolCommander:
         message_list.append(self.scpi_lib.query_waveform_data())
         return self.__wrap_in_message_holder(message_list)
 
-    # def get_status_registers(self): 
-
+    def ask_for_active_channel(self): 
+        """ 
+            queries the active channel of oscilloscope
+        """
+        message_list = []
+        message_list.append(self.scpi_lib.query_waveform_source())
+        return self.__wrap_in_message_holder(message_list)
 
     def __wrap_in_message_holder(self , message_list): 
         message_holder = mi.IterMessageList(message_list)

@@ -20,45 +20,14 @@ class TCPcomm(threading.Thread):
             the ip is the autoip assigned to the rigol oscilloscope 
         """
         self.__buffer_size = 250000
-        self.__ip = '169.254.16.78'
+        self.__ip = '169.254.16.79'
         self.__port = 5555
         self.__data_ready_list = []
         self.__data_lock = threading.Lock()
         self.__port_listener_list = []
         self.__recv_data_queue = queue.Queue()
 
-    # def read_buffer(self): 
-    #     """
-    #         checks the buffer for new information
-    #         holds a lock over local data when reading the tcp buffer            
-    #     """    
-    #     while(True): 
-    #         try:     
-    #             # print("in read_buffer")       
-    #             with self.__data_lock: 
-    #                 data = self.__s.recv(self.__buffer_size)
-    #                 # print("after receive buffer")
-    #                 self.__data_ready_list.append(data)
-    #                 # print("after append data list")
 
-    #         except:              
-    #             pass
-    #             # raise
-
-
-            
-    # def send_mesage(self , message_object:mes_iter.IterMessageList): 
-    #     """
-    #         sends a message by reading from message iterables 
-    #     """
-        
-    #     try: 
-    #         while(message_object.has_next()):            
-    #             current_message = message_object.next().get_cmd()
-    #             self.__s.send(current_message.encode())        
-    #     except: 
-    #         # raise
-    #         pass 
 
     def send_receive_thread(self , doorbell_obj:db.DoorBell):
         """
@@ -82,18 +51,20 @@ class TCPcomm(threading.Thread):
                     self.__s.send(command_str.encode())
                     print(command_str)
                     if(next_instr.needs_answer()):
-                        
                         try: 
                             data = self.__s.recv(self.__buffer_size)
+                            print("data")
                             next_instr.set_answer(data)
                             # self.__recv_data_queue.put(data)
                             self.__recv_data_queue.put(next_instr)
+                            print("after_queue")
                             
                         except: 
                             time.sleep(0.1)
                             print("missed first wait try")
                             try: 
                                 data = self.__s.recv(self.__buffer_size)
+                                print("data")
                                 next_instr.set_answer(data)
                                 # self.__recv_data_queue.put(data)
                                 self.__recv_data_queue.put(next_instr)
@@ -105,7 +76,7 @@ class TCPcomm(threading.Thread):
                                     data = self.__s.recv(self.__buffer_size)
                                     next_instr.set_answer(data)
                                     # self.__recv_data_queue.put(data)
-                                    self.__recv_data_queue.put(data)
+                                    self.__recv_data_queue.put(next_instr)
                                     
                                 except:
                                     print("missed third wait try")
@@ -149,7 +120,7 @@ class TCPcomm(threading.Thread):
 
     def get_data_and_empty_queue(self): 
         last_data = self.get_last_data()
-        self.__recv_data_queue.queue.clear()
+        # self.__recv_data_queue.queue.clear()
         return last_data
 
     def establish_conn(self): 

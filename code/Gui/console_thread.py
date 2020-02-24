@@ -14,9 +14,9 @@ import TCPconnection.MessageIterables as mi
 import TCPconnection.TCPcomm as tcp
 import TCPconnection.TCPListener as tl
 
-from Rigol_util import RigolRespProc as rrp
+# from Rigol_util import RigolRespProc as rrp
 from Rigol_util import channelDataKeeper as cld
-from Rigol_util import Rigol_plotter as Rigol_plotter
+# from Rigol_util import Rigol_plotter as Rigol_plotter
 from Rigol_util import RigolCommander as rc
 from doorbell import DoorBell as db 
 import time
@@ -52,6 +52,7 @@ class ConsoleControl:
     def run(self):
         
         try:
+            
             ## create commands: 
             cmd_initiate_oscilloscope = self.rigol_commander.initalize_data_query_byte(rs.RIGOL_CHANNEL_IDX.CH4)
             cmd_ask_data_oscilloscope = self.rigol_commander.ask_oscilloscope_for_data()
@@ -66,17 +67,32 @@ class ConsoleControl:
             self.tcp_thread.daemon = True
             self.tcp_thread.start()
 
+            latest_channel = rs.RIGOL_CHANNEL_IDX.CH4
             while(True):
                 if(self.pause_tcp_connection):                     
                     while(self.doorbell_obj.is_data_new()):
-                        pass 
-                    # cmd_initiate_oscilloscope = self.rigol_commander.initalize_data_query_byte(rs.RIGOL_CHANNEL_IDX.CH4)
-                    cmd_ask_data_oscilloscope = self.rigol_commander.ask_oscilloscope_for_data()
-                
-                    self.doorbell_obj.put_data_to_doorbell(cmd_ask_data_oscilloscope)
+                        pass
 
-                    ## add time delay to reduce cpu usage of the program
-                    time.sleep(0.5)
+                    if(latest_channel == rs.RIGOL_CHANNEL_IDX.CH3):  
+                        latest_channel = rs.RIGOL_CHANNEL_IDX.CH4
+
+                    elif(latest_channel == rs.RIGOL_CHANNEL_IDX.CH4): 
+                        latest_channel = rs.RIGOL_CHANNEL_IDX.CH3
+                        
+
+
+                    cmd_initiate_oscilloscope = self.rigol_commander.initalize_data_query_byte(latest_channel)
+                    cmd_ask_active_channel = self.rigol_commander.ask_for_active_channel()
+                    cmd_ask_data_oscilloscope = self.rigol_commander.ask_oscilloscope_for_data()
+                    
+                    cmd_initiate_oscilloscope.append(cmd_ask_active_channel)
+                    cmd_initiate_oscilloscope.append(cmd_ask_data_oscilloscope)
+                    
+                    
+                
+                    self.doorbell_obj.put_data_to_doorbell(cmd_initiate_oscilloscope)   ## put date to doorbell
+                    
+                    time.sleep(0.3) ## add time delay to reduce cpu usage
                     
 
         

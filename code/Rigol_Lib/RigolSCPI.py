@@ -1,7 +1,239 @@
 import enum 
 
+class RIGOL_WAVEFORM_FORMAT(enum.Enum): 
+    WORD = 0 
+    BYTE = 1
+    ASCII = 2
+
+    def get_string(self): 
+        return str(self.name)
+
+class RIGOL_WAVEFORM_MODE(enum.Enum): 
+    NORMAL = 0 
+    MAXIMUM = 1
+    RAW = 2
+
+    def get_string(self): 
+        return str(self.name)
+
+class RIGOL_WAVEFORM_SOURCE(enum.Enum): 
+    D0 = 0 
+    D1 = 1
+    D2 = 2
+    D3 = 3
+    D4 = 4
+    D5 = 5
+    D6 = 6
+    D7 = 7
+    D8 = 8 
+    D9 = 9 
+    D10 = 10 
+    D11 = 11
+    D12 = 12
+    D13 = 13
+    D14 = 14
+    D15 = 15
+    CHANNEL1 = 16
+    CHANNEL2 = 17
+    CHANNEL3 = 18
+    CHANNEL4 = 19
+    MATH = 20
+
+    def get_string(self):
+        return str(self.name)
+
+
+class RIGOL_TRIGGER_HOLDOFF_LIMITS(enum.Enum): 
+    MIN = 0 
+    MAX = 1 
+    def get_value(self): 
+        if(self.value == 0):
+            # return minimum value in seconds  
+            return 0.000000016
+        elif(self.value == 1): 
+            # return maximum value in seconds
+            return 10
+
+class RIGOL_TRIGGER_SWEEP(enum.Enum): 
+    AUTO = 1 
+    NORMAL = 2
+    SINGLE = 3
+
+    def get_string(self): 
+        return str(self.name)
+
+class RIGOL_TRIGGER_STATUS(enum.Enum): 
+    TD = 1
+    WAIT = 2
+    RUN = 3 
+    AUTO = 4
+    STOP = 5
+
+## Rigol trigger coupling
+class RIGOL_TRIGGER_COUPLING(enum.Enum): 
+    AC = 1 
+    DC = 2
+    LFreject = 3
+    HFreject = 4
+
+    def get_string(self): 
+        return str(self.name)
+
+## Rigol trigger mode 
+class RIGOL_TRIGGER_MODES(enum.Enum): 
+    EDGE = 1
+    PULSe = 2
+    RUNT = 3
+    WIND = 4
+    NEDG = 5
+    SLOPe = 6
+    VIDeo = 7
+    PATTern = 8
+    DELay = 9 
+    TIMeout = 10
+    DURation = 11
+    SHOLd = 12
+    RS232 = 13
+    IIC = 14
+    SPI = 15
+
+    def get_string(self): 
+        return str(self.name)
+
+## RIGOL PROBLE ATTENUATION list 
+class RIGOL_PROBE_ATTENUATION_VALUES(enum.Enum): 
+    START = -1
+    _0_01 = 0 
+    _0_02 = 1
+    _0_05 = 2 
+    _0_1 = 3
+    _0_2 = 4
+    _0_5 = 5
+    _1 = 6
+    _2 = 7
+    _5 = 8
+    _10 = 9
+    _20 = 10
+    _50 = 11
+    _100 = 12
+    _200 = 13
+    _500 = 14
+    _1000 = 15
+    END = 16
+
+    def get_string(self):
+        var_name = str(self.name)
+        var_name_numberify = var_name.replace('_' , '.')[1:]
+        return var_name_numberify
+
+    def next(self): 
+        v = self.value + 1
+        if(v >= RIGOL_PROBE_ATTENUATION_VALUES.END.value):
+            return RIGOL_PROBE_ATTENUATION_VALUES.END
+
+        else: 
+            return RIGOL_PROBE_ATTENUATION_VALUES(v)
+
+    def prev(self): 
+        v = self.value - 1
+        if(v <= RIGOL_PROBE_ATTENUATION_VALUES.START.value):
+            return RIGOL_PROBE_ATTENUATION_VALUES.START
+
+        else: 
+            return RIGOL_PROBE_ATTENUATION_VALUES(v)
+
+
+## RIGOL CHANNEL IMPEDANCE
+class RIGOL_CHANNEL_IMPEDANCE(enum.Enum): 
+    IMP_1_MOHM = 0 
+    IMP_50_OHM = 1  
+
+    def get_string(self): 
+        if(self.value == 0): 
+            return "omeg" 
+        else: 
+            return "fifty"
+
+class RIGOL_CHANNEL_COUPLING(enum.Enum): 
+    AC = 0 
+    DC = 1 
+    GND = 2
+
+    def get_string(self): 
+        if(self.value == 0): 
+            return "ac"
+        elif(self.value == 1): 
+            return "dc"
+        elif(self.value == 2): 
+            return "gnd"
+                   
+
+
+class RIGOL_CHANNEL_IDX(enum.Enum): 
+    CH1 = 1 
+    CH2 = 2 
+    CH3 = 3 
+    CH4 = 4
+
+    def get_string(self): 
+        return "channel{}".format(self.value)
+
+# check values for the model of rigol 
+class RIGOL_BW_OPTIONS(enum.Enum): 
+    BW_20Mhz = 0 
+    BW_100Mhz = 1
+    BW_OFF = 2
+
+# check values for the model of rigol
+class RIGOL_MEM_DEPTH_INTERWEAVE(enum.Enum):
+    AUTO = 0
+    N_14E3 = 1
+    N_14E4 = 2
+    N_14E5 = 3
+    N_14E6 = 4
+    N_56E6 = 5
+
+
+# check values for the model of rigol
+class RIGOL_MEM_DEPTH_NON_INTERWEAVE(enum.Enum): 
+    AUTO = 0 
+    N_7E3 = 1
+    N_7E4 = 2
+    N_7E5 = 3
+    N_7E6 = 4
+    N_28E6 = 5
+
+
+# check values for the model of rigol 
+class RIGOL_ACQUIRE_TYPES(enum.Enum): 
+    NORMAL = 0
+    AVERAGES = 1
+    PEAK = 2
+    HRE_SOLUTION = 3
+
+class RIGOL_ON_OFF(enum.Enum): 
+    OFF = 0
+    ON = 1
+
+    def get_string(self): 
+        return str(self.name)
+
+class SCPI_RESPONSE_TYPE(enum.Enum): 
+    DATA_PAIR = 0 
+    PREAMBLE = 1
+    CHANNEL_NUMBER = 2
+
+class EXC_IMPROPER_PARAMETER(Exception): 
+    pass
+
+class EXC_METHOD_NOT_IMPLEMENTED(Exception): 
+    pass
+
+
+
 class cmdObj: 
     answer = ""
+    __parser = None
     def __init__(self , cmd_string, needs_answer): 
         self.__cmd = cmd_string
         self.__needs_answer = needs_answer
@@ -19,8 +251,119 @@ class cmdObj:
     def get_answer(self): 
         return self.answer
         
+    def get_parser(self): 
+        if(self.__parser == None):
+            
+            self.__parser = cmdParsedObj(self.answer)
+                    
+        return self.__parser
 
 
+
+class cmdParsedObj: 
+
+    __response_type = None 
+
+    def __init__(self , received_resp): 
+        self.__received_resp = received_resp
+        self.__parse()
+
+    def __parse(self):
+        """
+            tries to parse the string of reponse according to 
+            the response type
+        """
+        if(self.__check_data_answer() != None): 
+            response = self.__check_data_answer()
+            self.data_idx = response[0]
+            self.data_val = response[1]
+            self.__response_type = SCPI_RESPONSE_TYPE.DATA_PAIR            
+
+        elif(self.__check_preamble_answer() != None): 
+            self.preamble = self.__check_preamble_answer()
+            self.__response_type = SCPI_RESPONSE_TYPE.PREAMBLE
+
+        elif(self.__check_channel_answer() != None): 
+            self.channel = RIGOL_CHANNEL_IDX(self.__check_channel_answer())
+            self.__response_type = SCPI_RESPONSE_TYPE.CHANNEL_NUMBER
+
+    def get_channel(self)->RIGOL_CHANNEL_IDX: 
+        return self.channel
+
+    def get_response_type(self)->SCPI_RESPONSE_TYPE: 
+        return self.__response_type
+
+    
+
+    def __check_data_answer(self):
+        """
+            extracting data from response to waveform:data
+            so the headerfile looks like this: 
+            Nxxxxxxx where x repeats N times
+        """
+        answer = None 
+
+        self._data_header_sharp_sign = self.__received_resp[0]        
+        if(chr(self._data_header_sharp_sign) == '#'):             
+            self._data_header_N = self.__received_resp[1]
+            number = self._data_header_N - 48
+            self._data_pts_count = list(self.__received_resp[2 : number + 2])
+            self._data_pts_count.reverse()
+            tens = 1
+            data_pts_count_all = 0
+            for digit in self._data_pts_count:                 
+                real_digit = digit - 48
+                data_pts_count_all = data_pts_count_all + tens * real_digit
+                tens = 10 * tens
+
+            data_start_idx = number + 2 
+            useful_data = self.__received_resp[data_start_idx : data_start_idx + data_pts_count_all - 1]
+            data_value = []
+            data_idx = []
+            for i, data in enumerate(useful_data): 
+                data_value.append(data)
+                data_idx.append(i)
+            answer = (data_idx , data_value)
+        return answer
+
+    def __check_preamble_answer(self): 
+        
+        answer = None 
+        try: 
+            split_data = self.__received_resp.split(',')
+            if(len(split_data) == 10): 
+                
+                    float_preamble = [float(x) for x in split_data]
+                    answer = float_preamble
+        except: 
+            answer = None 
+
+        return answer
+
+    def __check_channel_answer(self): 
+        
+        chan_number = None 
+        try: 
+            lower_resp = self.__received_resp.decode()
+            lower_resp = lower_resp.lower()
+            
+            
+            if(lower_resp[0:4] == "chan"): 
+                chan_number = int(lower_resp[-2])
+
+
+        except: 
+            pass 
+        return chan_number
+
+    def get_data_idx(self): 
+        return self.data_idx
+
+    def get_data_val(self): 
+        return self.data_val
+    
+    def get_preamble(self): 
+        return self.preamble
 
 class RigolSCPI: 
     def autoscale(self): 
@@ -560,228 +903,4 @@ class RigolSCPI:
 
         return param
 
-
-class RIGOL_WAVEFORM_FORMAT(enum.Enum): 
-    WORD = 0 
-    BYTE = 1
-    ASCII = 2
-
-    def get_string(self): 
-        return str(self.name)
-
-class RIGOL_WAVEFORM_MODE(enum.Enum): 
-    NORMAL = 0 
-    MAXIMUM = 1
-    RAW = 2
-
-    def get_string(self): 
-        return str(self.name)
-
-class RIGOL_WAVEFORM_SOURCE(enum.Enum): 
-    D0 = 0 
-    D1 = 1
-    D2 = 2
-    D3 = 3
-    D4 = 4
-    D5 = 5
-    D6 = 6
-    D7 = 7
-    D8 = 8 
-    D9 = 9 
-    D10 = 10 
-    D11 = 11
-    D12 = 12
-    D13 = 13
-    D14 = 14
-    D15 = 15
-    CHANNEL1 = 16
-    CHANNEL2 = 17
-    CHANNEL3 = 18
-    CHANNEL4 = 19
-    MATH = 20
-
-    def get_string(self):
-        return str(self.name)
-
-
-class RIGOL_TRIGGER_HOLDOFF_LIMITS(enum.Enum): 
-    MIN = 0 
-    MAX = 1 
-    def get_value(self): 
-        if(self.value == 0):
-            # return minimum value in seconds  
-            return 0.000000016
-        elif(self.value == 1): 
-            # return maximum value in seconds
-            return 10
-
-class RIGOL_TRIGGER_SWEEP(enum.Enum): 
-    AUTO = 1 
-    NORMAL = 2
-    SINGLE = 3
-
-    def get_string(self): 
-        return str(self.name)
-
-class RIGOL_TRIGGER_STATUS(enum.Enum): 
-    TD = 1
-    WAIT = 2
-    RUN = 3 
-    AUTO = 4
-    STOP = 5
-
-## Rigol trigger coupling
-class RIGOL_TRIGGER_COUPLING(enum.Enum): 
-    AC = 1 
-    DC = 2
-    LFreject = 3
-    HFreject = 4
-
-    def get_string(self): 
-        return str(self.name)
-
-## Rigol trigger mode 
-class RIGOL_TRIGGER_MODES(enum.Enum): 
-    EDGE = 1
-    PULSe = 2
-    RUNT = 3
-    WIND = 4
-    NEDG = 5
-    SLOPe = 6
-    VIDeo = 7
-    PATTern = 8
-    DELay = 9 
-    TIMeout = 10
-    DURation = 11
-    SHOLd = 12
-    RS232 = 13
-    IIC = 14
-    SPI = 15
-
-    def get_string(self): 
-        return str(self.name)
-
-## RIGOL PROBLE ATTENUATION list 
-class RIGOL_PROBE_ATTENUATION_VALUES(enum.Enum): 
-    START = -1
-    _0_01 = 0 
-    _0_02 = 1
-    _0_05 = 2 
-    _0_1 = 3
-    _0_2 = 4
-    _0_5 = 5
-    _1 = 6
-    _2 = 7
-    _5 = 8
-    _10 = 9
-    _20 = 10
-    _50 = 11
-    _100 = 12
-    _200 = 13
-    _500 = 14
-    _1000 = 15
-    END = 16
-
-    def get_string(self):
-        var_name = str(self.name)
-        var_name_numberify = var_name.replace('_' , '.')[1:]
-        return var_name_numberify
-
-    def next(self): 
-        v = self.value + 1
-        if(v >= RIGOL_PROBE_ATTENUATION_VALUES.END.value):
-            return RIGOL_PROBE_ATTENUATION_VALUES.END
-
-        else: 
-            return RIGOL_PROBE_ATTENUATION_VALUES(v)
-
-    def prev(self): 
-        v = self.value - 1
-        if(v <= RIGOL_PROBE_ATTENUATION_VALUES.START.value):
-            return RIGOL_PROBE_ATTENUATION_VALUES.START
-
-        else: 
-            return RIGOL_PROBE_ATTENUATION_VALUES(v)
-
-
-## RIGOL CHANNEL IMPEDANCE
-class RIGOL_CHANNEL_IMPEDANCE(enum.Enum): 
-    IMP_1_MOHM = 0 
-    IMP_50_OHM = 1  
-
-    def get_string(self): 
-        if(self.value == 0): 
-            return "omeg" 
-        else: 
-            return "fifty"
-
-class RIGOL_CHANNEL_COUPLING(enum.Enum): 
-    AC = 0 
-    DC = 1 
-    GND = 2
-
-    def get_string(self): 
-        if(self.value == 0): 
-            return "ac"
-        elif(self.value == 1): 
-            return "dc"
-        elif(self.value == 2): 
-            return "gnd"
-                   
-
-
-class RIGOL_CHANNEL_IDX(enum.Enum): 
-    CH1 = 1 
-    CH2 = 2 
-    CH3 = 3 
-    CH4 = 4
-
-    def get_string(self): 
-        return "channel{}".format(self.value)
-
-# check values for the model of rigol 
-class RIGOL_BW_OPTIONS(enum.Enum): 
-    BW_20Mhz = 0 
-    BW_100Mhz = 1
-    BW_OFF = 2
-
-# check values for the model of rigol
-class RIGOL_MEM_DEPTH_INTERWEAVE(enum.Enum):
-    AUTO = 0
-    N_14E3 = 1
-    N_14E4 = 2
-    N_14E5 = 3
-    N_14E6 = 4
-    N_56E6 = 5
-
-
-# check values for the model of rigol
-class RIGOL_MEM_DEPTH_NON_INTERWEAVE(enum.Enum): 
-    AUTO = 0 
-    N_7E3 = 1
-    N_7E4 = 2
-    N_7E5 = 3
-    N_7E6 = 4
-    N_28E6 = 5
-
-
-# check values for the model of rigol 
-class RIGOL_ACQUIRE_TYPES(enum.Enum): 
-    NORMAL = 0
-    AVERAGES = 1
-    PEAK = 2
-    HRE_SOLUTION = 3
-
-class RIGOL_ON_OFF(enum.Enum): 
-    OFF = 0
-    ON = 1
-
-    def get_string(self): 
-        return str(self.name)
-
-class EXC_IMPROPER_PARAMETER(Exception): 
-    pass
-
-class EXC_METHOD_NOT_IMPLEMENTED(Exception): 
-    pass
 
