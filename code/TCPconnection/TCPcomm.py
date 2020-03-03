@@ -5,8 +5,9 @@ import MessageIterables as mes_iter
 import time 
 from inspect import getframeinfo , currentframe
 import typing
-import doorbell.DoorBell as db
+import TransactionMeans.DoorBell as db
 import queue
+import tcp_queue
 
 class TCPcomm(threading.Thread):    
     """
@@ -20,12 +21,14 @@ class TCPcomm(threading.Thread):
             the ip is the autoip assigned to the rigol oscilloscope 
         """
         self.__buffer_size = 250000
-        self.__ip = '169.254.16.79'
+        self.__ip = '169.254.16.78'
         self.__port = 5555
         self.__data_ready_list = []
         self.__data_lock = threading.Lock()
         self.__port_listener_list = []
         self.__recv_data_queue = queue.Queue()
+        self.__recv_queue_max_limit = 20
+        # self.__recv_data_queue = tcp_queue.tcp_queue(queue_space_limit=5)
 
 
 
@@ -45,6 +48,9 @@ class TCPcomm(threading.Thread):
 
             ## the message iterator (mi) is filled with instructions of rigol
             if(mi != None): 
+                print("rec queue size : {}".format(self.__recv_data_queue.qsize()))
+                if(self.__recv_data_queue.qsize() > self.__recv_queue_max_limit):
+                    self.__recv_data_queue.get()
                 while(mi.has_next()): 
                     next_instr = mi.next()
                     command_str = next_instr.get_cmd()
@@ -52,15 +58,15 @@ class TCPcomm(threading.Thread):
                     print(command_str)
                     if(next_instr.needs_answer()):
                         try: 
+                            self.__s.settimeout(0.1)
                             data = self.__s.recv(self.__buffer_size)
-                            print("data")
                             next_instr.set_answer(data)
                             # self.__recv_data_queue.put(data)
                             self.__recv_data_queue.put(next_instr)
                             print("after_queue")
                             
                         except: 
-                            time.sleep(0.1)
+                            # time.sleep(0.1)
                             print("missed first wait try")
                             try: 
                                 data = self.__s.recv(self.__buffer_size)
@@ -70,7 +76,7 @@ class TCPcomm(threading.Thread):
                                 self.__recv_data_queue.put(next_instr)
                                 
                             except: 
-                                time.sleep(0.200)
+                                # time.sleep(0.2)
                                 print("missed second wait try")
                                 try: 
                                     data = self.__s.recv(self.__buffer_size)
@@ -87,11 +93,12 @@ class TCPcomm(threading.Thread):
             print("end send") 
             print("")
 
-    def get_last_data(self): 
-        if(not self.__recv_data_queue.empty()): 
-            return self.__recv_data_queue.get()
-        else: 
-            return None 
+    def get_last_data(self):
+        print("in get last data") 
+        # if(not self.__recv_data_queue.empty()): 
+        return self.__recv_data_queue.get()
+        # else: 
+        #     return None 
 
     ## Implementation of observer pattern
     def subscribe_listener(self , listener): 
@@ -109,19 +116,27 @@ class TCPcomm(threading.Thread):
             listener.inform()
             # listener.inform_last()
 
-    def get_all_messages(self): 
-        ## The listener has to call this function to get all of the received messages, 
-        #  This function is threadsafe
-        with self.__data_lock: 
-            data = self.__data_ready_list
-            self.__data_ready_list = []
+    # def get_all_messages(self): 
+    #     ## The listener has to call this function to get all of the received messages, 
+    #     #  This function is threadsafe
+    #     with self.__data_lock: 
+    #         data = self.__data_ready_list
+    #         self.__data_ready_list = []
         
-        return data
+    #     return data
 
-    def get_data_and_empty_queue(self): 
-        last_data = self.get_last_data()
-        # self.__recv_data_queue.queue.clear()
-        return last_data
+    def get_data(self): 
+        # print("in get all message")
+        # last_data = self.get_last_data()
+        if(self.__recv_data_queue.qsize()>0): 
+            return self.__recv_data_queue.get()
+        else: 
+            return None 
+        
+        
+
+        # else: 
+        #     return None
 
     def establish_conn(self): 
         try: 

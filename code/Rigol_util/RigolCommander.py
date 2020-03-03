@@ -2,12 +2,19 @@
 import Rigol_Lib.RigolSCPI as rscpi
 import TCPconnection.MessageIterables as mi
 
-
+""" 
+class rigol commander has the following responsibilities: 
+    1) creating rigol commands in a proper format (a cmdObj in a List)
+    2) Keeping the status of oscilloscope (last active channel)
+    3) Parsing commands
+"""
 class RigolCommander: 
     """
         holds wrapper methods to alleviate generation of commands for oscilloscope
         getting commands by a behaviour
     """
+
+    __last_active_chanel = None
 
     def __init__(self):
         self.scpi_lib = rscpi.RigolSCPI()
@@ -23,6 +30,7 @@ class RigolCommander:
                 5) set waveform return mode 
         """
         message_list = []
+        self.__last_active_chanel = chann
         # message_list.append(self.scpi_lib.identify_device())
         message_list.append(self.scpi_lib.run())
         message_list.append(self.scpi_lib.set_waveform_source(chann))
@@ -36,6 +44,7 @@ class RigolCommander:
         """
         message_list = []
         message_list.append(self.scpi_lib.query_waveform_data())
+        message_list[-1].set_active_channel(self.__last_active_chanel)
         return self.__wrap_in_message_holder(message_list)
 
     def ask_for_active_channel(self): 

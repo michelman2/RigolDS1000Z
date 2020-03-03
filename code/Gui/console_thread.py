@@ -18,9 +18,12 @@ import TCPconnection.TCPListener as tl
 from Rigol_util import channelDataKeeper as cld
 # from Rigol_util import Rigol_plotter as Rigol_plotter
 from Rigol_util import RigolCommander as rc
-from doorbell import DoorBell as db 
+from TransactionMeans import DoorBell as db 
+from decoder import FFTModule
+from decoder import SineCreator
 import time
-
+import queue
+from TransactionMeans import LimitedQueue
 
 class ConsoleControl: 
     """ 
@@ -34,7 +37,13 @@ class ConsoleControl:
     
     global doorbell_obj # doorbell objet is used between the thread running this class and the thread handling tcp connections
 
+    queue_max_size = 10
+    # tcp_resp_queue = queue.Queue()
+    tcp_resp_queue = LimitedQueue.LimitedQueue(queue_max_size)
+    fft_resp_queue = LimitedQueue.LimitedQueue(queue_max_size)
 
+    tcp_resp_data_queue = LimitedQueue.LimitedQueue(queue_max_size)
+    
 
     def __init__(self):
         # create doorbell object for message passing between main thread
@@ -69,10 +78,12 @@ class ConsoleControl:
 
             latest_channel = rs.RIGOL_CHANNEL_IDX.CH4
             while(True):
-                if(self.pause_tcp_connection):                     
+                if(self.pause_tcp_connection):                    
                     while(self.doorbell_obj.is_data_new()):
                         pass
 
+                    ## just to generate channel commands for the 
+                    ## osciolloscope
                     if(latest_channel == rs.RIGOL_CHANNEL_IDX.CH3):  
                         latest_channel = rs.RIGOL_CHANNEL_IDX.CH4
 
@@ -80,19 +91,31 @@ class ConsoleControl:
                         latest_channel = rs.RIGOL_CHANNEL_IDX.CH3
                         
 
-
                     cmd_initiate_oscilloscope = self.rigol_commander.initalize_data_query_byte(latest_channel)
-                    cmd_ask_active_channel = self.rigol_commander.ask_for_active_channel()
                     cmd_ask_data_oscilloscope = self.rigol_commander.ask_oscilloscope_for_data()
-                    
-                    cmd_initiate_oscilloscope.append(cmd_ask_active_channel)
                     cmd_initiate_oscilloscope.append(cmd_ask_data_oscilloscope)
                     
-                    
-                
                     self.doorbell_obj.put_data_to_doorbell(cmd_initiate_oscilloscope)   ## put date to doorbell
                     
-                    time.sleep(0.3) ## add time delay to reduce cpu usage
+                    ## last data
+                    last_tcp_data:rs.cmdObj = self.tcp_connection.get_data()
+                    if(last_tcp_data != None): 
+                        
+                        
+                        self.tcp_resp_queue.put(last_tcp_data)
+                        
+                        ########### extract tcp data here: instead of gui
+                        response_type = last_tcp_data.get_parser().get_response_type()
+                        
+                        if(response_type == rs.SCPI_RESPONSE_TYPE.DATA_PAIR):
+                            
+                            self.tcp_resp_data_queue.put(last_tcp_data)
+                            # print("************* data type {}".format(last_tcp_data.get_active_channel()))
+
+
+                        
+                    
+                    print(self.tcp_resp_queue.qsize())
                     
 
         
@@ -107,8 +130,14 @@ class ConsoleControl:
     def get_data(self): 
         return self.tcp_connection.get_last_data()
 
-    def get_data_and_empty_queue(self): 
-        return self.tcp_connection.get_data_and_empty_queue() 
+    def get_tcp_data(self):   
+        if(not self.tcp_resp_queue.empty()): 
+            # data = self.tcp_resp_queue.get()
+            data = self.tcp_resp_data_queue.get_nowait()
+            return data
+        else: 
+            return None
+        
 
     def pause_tcp_connection(self): 
         self.__pause_tcp_conn = True

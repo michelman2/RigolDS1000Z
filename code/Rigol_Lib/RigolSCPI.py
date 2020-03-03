@@ -234,9 +234,12 @@ class EXC_METHOD_NOT_IMPLEMENTED(Exception):
 class cmdObj: 
     answer = ""
     __parser = None
+    __active_channel_for_cmd = None
+
     def __init__(self , cmd_string, needs_answer): 
         self.__cmd = cmd_string
         self.__needs_answer = needs_answer
+       
 
     def needs_answer(self): 
         return self.__needs_answer
@@ -257,6 +260,12 @@ class cmdObj:
             self.__parser = cmdParsedObj(self.answer)
                     
         return self.__parser
+
+    def set_active_channel(self , active_channel): 
+        self.__active_channel_for_cmd = active_channel
+    
+    def get_active_channel(self)->RIGOL_CHANNEL_IDX: 
+        return self.__active_channel_for_cmd
 
 
 
