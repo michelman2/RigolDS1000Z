@@ -8,11 +8,20 @@ import typing
 import TransactionMeans.DoorBell as db
 import queue
 import tcp_queue
+from print_util import print_colors
+from termcolor import colored
+from decoder import SineCreator
+from debug import debug_instr as dbg
 
 class TCPcomm(threading.Thread):    
     """
         manages tcp communication operations
     """
+    
+    if(dbg.flags.LOOPBACK): 
+        print("Warning loopback MODE ON in TCP COMM")
+    
+
     TIME_OUT = 0.00
   
     def __init__(self):
@@ -47,37 +56,42 @@ class TCPcomm(threading.Thread):
             mi = doorbell_obj.pick_data_from_doorbell()
 
             ## the message iterator (mi) is filled with instructions of rigol
-            if(mi != None): 
-                print("rec queue size : {}".format(self.__recv_data_queue.qsize()))
+            if(mi != None):
+                dbg.flags.cond_print("rec queue size : {}".format(self.__recv_data_queue.qsize()))
                 if(self.__recv_data_queue.qsize() > self.__recv_queue_max_limit):
                     self.__recv_data_queue.get()
                 while(mi.has_next()): 
                     next_instr = mi.next()
                     command_str = next_instr.get_cmd()
-                    self.__s.send(command_str.encode())
-                    print(command_str)
+                    # self.__s.send(command_str.encode())
+                    self.tcp_send_wrapper(command_str.encode())
+                    dbg.flags.cond_print(command_str)
                     if(next_instr.needs_answer()):
                         try: 
-                            self.__s.settimeout(0.1)
-                            data = self.__s.recv(self.__buffer_size)
+                            # self.__s.settimeout(0.1)
+                            self.tcp_set_timeout_wrapper(0.1)
+
+                            # data = self.__s.recv(self.__buffer_size)
+                            data = self.tcp_recv_wrapper(self.__buffer_size)
+
                             next_instr.set_answer(data)
                             # self.__recv_data_queue.put(data)
                             self.__recv_data_queue.put(next_instr)
-                            print("after_queue")
+                            dbg.flags.cond_print("after_queue")
                             
                         except: 
                             # time.sleep(0.1)
-                            print("missed first wait try")
+                            dbg.flags.cond_print("missed first wait try")
                             try: 
                                 data = self.__s.recv(self.__buffer_size)
-                                print("data")
+                                dbg.flags.cond_print("data")
                                 next_instr.set_answer(data)
                                 # self.__recv_data_queue.put(data)
                                 self.__recv_data_queue.put(next_instr)
                                 
                             except: 
                                 # time.sleep(0.2)
-                                print("missed second wait try")
+                                dbg.flags.cond_print("missed second wait try")
                                 try: 
                                     data = self.__s.recv(self.__buffer_size)
                                     next_instr.set_answer(data)
@@ -85,16 +99,16 @@ class TCPcomm(threading.Thread):
                                     self.__recv_data_queue.put(next_instr)
                                     
                                 except:
-                                    print("missed third wait try")
-                                    print("") 
+                                    dbg.flags.cond_print("missed third wait try")
+                                    dbg.flags.cond_print("") 
                                     
                         
 
-            print("end send") 
-            print("")
+            dbg.flags.cond_print("end send") 
+            dbg.flags.cond_print("")
 
     def get_last_data(self):
-        print("in get last data") 
+        dbg.flags.cond_print("in get last data") 
         # if(not self.__recv_data_queue.empty()): 
         return self.__recv_data_queue.get()
         # else: 
@@ -116,18 +130,49 @@ class TCPcomm(threading.Thread):
             listener.inform()
             # listener.inform_last()
 
-    # def get_all_messages(self): 
-    #     ## The listener has to call this function to get all of the received messages, 
-    #     #  This function is threadsafe
-    #     with self.__data_lock: 
-    #         data = self.__data_ready_list
-    #         self.__data_ready_list = []
-        
-    #     return data
+    def tcp_send_wrapper(self, message): 
+        """ 
+            tcp send wrapper to add probing with loopback 
+        """ 
+        if(dbg.flags.LOOPBACK):
+            pass 
+        else:  
+            self.__s.send(message)
+
+    def tcp_set_timeout_wrapper(self , number): 
+        """ 
+            A wrapper function to add loopback functionality
+        """
+        if(dbg.flags.LOOPBACK): 
+            pass 
+        else: 
+            self.__s.settimeout(number)
+
+    def tcp_recv_wrapper(self , buffer_size): 
+        """ 
+            If loopback is on, the tcp is cut off and a sinosoid is returned
+        """
+        if(dbg.flags.LOOPBACK): 
+            sc = SineCreator.SineCreator()
+            getsine = sc.create_sine(number_of_samples = 5000 ,
+                                    time_frequency = 1 , 
+                                    time_length = 2 ,
+                                    init_phase_degree = 40 )
+            getsine2 = sc.create_sine(number_of_samples = 5000,
+                                    time_frequency = 5 , 
+                                    time_length = 2, 
+                                    init_phase_degree=0)
+
+
+
+            mixed_sine = sc.mix_sines([getsine , getsine2] , 2)
+            return mixed_sine
+
+        else: 
+            return self.__s.recv(buffer_size)
 
     def get_data(self): 
-        # print("in get all message")
-        # last_data = self.get_last_data()
+        
         if(self.__recv_data_queue.qsize()>0): 
             return self.__recv_data_queue.get()
         else: 
@@ -135,21 +180,27 @@ class TCPcomm(threading.Thread):
         
         
 
-        # else: 
-        #     return None
-
-    def establish_conn(self): 
-        try: 
-            self.__s = socket.socket(socket.AF_INET , socket.SOCK_STREAM)
-            self.__s.setblocking(1)          
-            self.__s.connect((self.__ip , self.__port))
-            self.__s.settimeout(self.TIME_OUT)
-        except: 
-            self.__s.close()
-            raise 
+    def establish_conn(self):
+        """ 
+            If the loopback mode is on, no actual connection to a socket needs to be made
+        """
+        if(dbg.flags.LOOPBACK): 
+            pass 
+        else: 
+            try: 
+                self.__s = socket.socket(socket.AF_INET , socket.SOCK_STREAM)
+                self.__s.setblocking(1)          
+                self.__s.connect((self.__ip , self.__port))
+                self.__s.settimeout(self.TIME_OUT)
+            except: 
+                self.__s.close()
+                raise 
 
     def close_conn(self): 
-        self.__s.close()
+        if(dbg.flags.LOOPBACK):
+            pass 
+        else: 
+            self.__s.close()
         
     def set_ip(self , ip):
         self.__ip = ip

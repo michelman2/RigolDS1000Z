@@ -29,3 +29,10 @@ class LimitedQueue:
     
     def get_nowait(self): 
         return self.__queue.get_nowait()
+
+
+    def has_space(self): 
+        if(self.qsize() < self.__max_queue_size): 
+            return True
+        
+        return False

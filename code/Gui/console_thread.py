@@ -24,6 +24,7 @@ from decoder import SineCreator
 import time
 import queue
 from TransactionMeans import LimitedQueue
+from debug import debug_instr as dbg
 
 class ConsoleControl: 
     """ 
@@ -115,7 +116,7 @@ class ConsoleControl:
 
                         
                     
-                    print(self.tcp_resp_queue.qsize())
+                    dbg.flags.cond_print(self.tcp_resp_queue.qsize())
                     
 
         
