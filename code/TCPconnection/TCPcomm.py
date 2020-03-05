@@ -49,7 +49,7 @@ class TCPcomm(threading.Thread):
         """
 
         while(True): 
-            
+            time.sleep(0.1)
             while(doorbell_obj.is_data_new() == False): 
                 pass 
             

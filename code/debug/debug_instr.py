@@ -1,7 +1,7 @@
 
 class flags: 
     DEBUG = False
-    LOOPBACK = False
+    LOOPBACK = True
     PRINT=False
 
 

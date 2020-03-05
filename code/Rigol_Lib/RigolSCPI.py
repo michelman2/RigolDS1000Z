@@ -180,6 +180,9 @@ class RIGOL_CHANNEL_IDX(enum.Enum):
     def get_string(self): 
         return "channel{}".format(self.value)
 
+    def get_data_val(self): 
+        return self.value - 1
+
 # check values for the model of rigol 
 class RIGOL_BW_OPTIONS(enum.Enum): 
     BW_20Mhz = 0 

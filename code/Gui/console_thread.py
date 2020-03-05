@@ -69,7 +69,7 @@ class ConsoleControl:
             ## join two commands: 
             cmd_initiate_oscilloscope.append(cmd_ask_data_oscilloscope)
 
-            ## start a tcp connection
+            # ## start a tcp connection
             self.tcp_connection.establish_conn()
 
             ## we only have two threads: 1 main and the other one for tcpip
@@ -79,6 +79,7 @@ class ConsoleControl:
 
             latest_channel = rs.RIGOL_CHANNEL_IDX.CH4
             while(True):
+                time.sleep(0.1)
                 if(self.pause_tcp_connection):                    
                     while(self.doorbell_obj.is_data_new()):
                         pass
@@ -119,7 +120,7 @@ class ConsoleControl:
                     dbg.flags.cond_print(self.tcp_resp_queue.qsize())
                     
 
-        
+            pass
 
         except:
             self.tcp_connection.close_conn() 
