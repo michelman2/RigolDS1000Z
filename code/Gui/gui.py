@@ -253,9 +253,7 @@ if(__name__ == "__main__"):
         get_observable_data.daemon = True 
         get_observable_data.start()
 
-        # plot_update_thread = threading.Thread(target=start.plot)
-        # plot_update_thread.daemon = True
-        # plot_update_thread.start()
+        
                 
         fourier_checker_thread = threading.Thread(target=start.read_fourier_list)
         fourier_checker_thread.daemon = True

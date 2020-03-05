@@ -108,6 +108,8 @@ class FFTControllerOscillAdapter:
     def stop_thread(self): 
         self.fourier_thread._stop()
 
+    def get_command_object(self)->rs.cmdObj: 
+        return self.oscill_cmd_object
     
     def start_calc_thread(self): 
         self.fourier_thread.start()
@@ -120,7 +122,7 @@ class FFTControllerOscillAdapter:
     def is_operation_done(self): 
         return self.fft_controller.is_operation_done()
 
-    def get_iterable_frames(self):
+    def get_iterable_frames(self)->mi.IterMessageList:
         if(self.resulting_frame_is_returned): 
             return None 
 
