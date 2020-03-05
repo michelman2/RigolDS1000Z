@@ -53,6 +53,7 @@ class MainWindow(QtGui.QMainWindow):
         print("checkded")
         if(self.login_widget.getRunFFT()): 
             self.timer.setInterval(200)
+            pass
         else: 
             self.timer.setInterval(40)
 
@@ -67,9 +68,8 @@ class MainWindow(QtGui.QMainWindow):
         self.timer.start(0)
 
     def updater(self):
-        # self.data.append(self.data[-1]+0.2*(0.5-random.random()) )
-        # self.data = np.random.randint(low=1, high=100, size=2000)
-        # self.x = np.linspace(0 , 100 , len(self.data))
+        
+
         curves = self.login_widget.getCurves()
         plotters = self.login_widget.getPlotters()
         vline1_curves = self.login_widget.getVline1Curves()
@@ -83,7 +83,7 @@ class MainWindow(QtGui.QMainWindow):
                 if(not pause_update):
                     self.fourier_ready_list= [None , None , None , None]
                     self.fourier_frames = [None , None , None , None]
-                # if(True):
+                
                     x = oscilloscope_data.get_parser().get_data_idx()
                     y = oscilloscope_data.get_parser().get_data_val()
 
@@ -96,8 +96,12 @@ class MainWindow(QtGui.QMainWindow):
                             curves[self.active_channel.get_data_val()][0].setData(x,y)
 
                 else:
-                    fourier_ready:FFTController.FFTControllerOscillAdapter = self.fourier_finished_queue.get()
-                    
+                    try: 
+                        fourier_ready:FFTController.FFTControllerOscillAdapter = self.fourier_finished_queue.get_nowait()
+                    except: 
+                        fourier_ready = None
+                        pass 
+
                     if(fourier_ready != None): 
                         current_fourier_channel = fourier_ready.get_command_object().get_active_channel().get_data_val()
                         
@@ -108,7 +112,7 @@ class MainWindow(QtGui.QMainWindow):
                             y = fourier_ready.get_command_object().get_parser().get_data_val()
                             curves[current_fourier_channel][0].setData(x , y)
 
-                        
+                    
                     for idx , fourier_frame_iterable in enumerate(self.fourier_frames): 
                         if(fourier_frame_iterable != None):
                             if(fourier_frame_iterable.has_next()): 
@@ -117,13 +121,13 @@ class MainWindow(QtGui.QMainWindow):
                                 fourier_y = fourier_frame[0][1]
                                 fourier_win_start = fourier_frame[1][0]
                                 fourier_win_end = fourier_frame[1][1]
-                                curves[idx][1].setData(fourier_x[0:20] , fourier_y[0:20])
-                                # plotters[idx][0].getPlotItem().plot([0,1,2,3] , [0,1,2,3])
+                                curves[idx][1].setData(fourier_x , fourier_y)
+                                
                                 pg.setConfigOption('foreground' , 'b')
                                 vline1_curves[idx][0].setData([fourier_win_start , fourier_win_start] ,
-                                                            [0,1])
+                                                            [60,200])
                                 vline2_curves[idx][0].setData([fourier_win_end , fourier_win_end], 
-                                                            [0,1])
+                                                            [60,200])
                                 pg.setConfigOption('foreground' , 'w')
         # self.curve.setData(self.data)
 
@@ -152,12 +156,19 @@ class MainWindow(QtGui.QMainWindow):
                 ## keep the list to a limited size
                 
                 if(self.fourier_dispatched_queue.has_space()): 
-
-                    fft_object = FFTController.FFTControllerOscillAdapter(self.oscilloscope_data,
-                                                                        window_duration=1,
-                                                                        window_start_time=0,
-                                                                        animated=True)
+                    if(dbg.flags.LOOPBACK): 
+                        fft_object = FFTController.FFTControllerOscillAdapter(self.oscilloscope_data,
+                                                                            window_duration=1,
+                                                                            window_start_time=0,
+                                                                            animated=True)
                     
+                    else:
+                        fft_object = FFTController.FFTControllerOscillAdapter(self.oscilloscope_data,
+                                                                            window_duration=100,
+                                                                            window_start_time=0,
+                                                                            number_of_steps=200,
+                                                                            animated=True)
+
 
                     fft_object.start_calc_thread()
                     

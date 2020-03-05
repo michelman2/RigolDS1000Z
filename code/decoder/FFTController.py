@@ -7,16 +7,15 @@ import Rigol_Lib.RigolSCPI as rs
 from TCPconnection import MessageIterables as mi
 import threading
 
-class FFTController: 
-
-
-
+class FFTController:
     def __init__(self, data_tuple, 
                         window_duration, 
                         window_start_time,
+                        number_of_steps,
                         animated = False):
 
         self.data_tuple = data_tuple
+        self.number_of_steps = number_of_steps
         self.window_duration = window_duration
         self.window_start_time = window_start_time
         self.operation_done = False 
@@ -35,7 +34,7 @@ class FFTController:
                
                 if(self.animated == True): 
                     
-                    for i in np.arange(0 , np.max(self.data_tuple[0]) - self.window_duration , step =0.1): 
+                    for i in np.linspace(0 , np.max(self.data_tuple[0]) - self.window_duration , num=self.number_of_steps): 
 
                         current_start = self.window_start_time + i
 
@@ -86,6 +85,7 @@ class FFTControllerOscillAdapter:
     def __init__(self,oscill_cmd_obj, 
                     window_duration, 
                     window_start_time,
+                    number_of_steps,
                     animated = False):
 
         self.oscill_cmd_object = oscill_cmd_obj
@@ -95,7 +95,8 @@ class FFTControllerOscillAdapter:
 
         self.fft_controller = FFTController(self.data_tuple,
                                             window_duration=window_duration,
-                                            window_start_time=window_start_time, 
+                                            window_start_time=window_start_time,
+                                            number_of_steps=number_of_steps,
                                             animated=animated)
         
         self.fourier_thread = threading.Thread(target=self.run)

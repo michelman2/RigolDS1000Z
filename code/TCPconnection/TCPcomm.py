@@ -30,7 +30,7 @@ class TCPcomm(threading.Thread):
             the ip is the autoip assigned to the rigol oscilloscope 
         """
         self.__buffer_size = 250000
-        self.__ip = '169.254.16.78'
+        self.__ip = '169.254.16.79'
         self.__port = 5555
         self.__data_ready_list = []
         self.__data_lock = threading.Lock()
@@ -69,7 +69,7 @@ class TCPcomm(threading.Thread):
                     if(next_instr.needs_answer()):
                         try: 
                             # self.__s.settimeout(0.1)
-                            self.tcp_set_timeout_wrapper(0.1)
+                            self.tcp_set_timeout_wrapper(0.3)
 
                             # data = self.__s.recv(self.__buffer_size)
                             data = self.tcp_recv_wrapper(self.__buffer_size)
@@ -80,7 +80,7 @@ class TCPcomm(threading.Thread):
                             dbg.flags.cond_print("after_queue")
                             
                         except: 
-                            # time.sleep(0.1)
+                            time.sleep(0.1)
                             dbg.flags.cond_print("missed first wait try")
                             try: 
                                 data = self.__s.recv(self.__buffer_size)
@@ -90,7 +90,7 @@ class TCPcomm(threading.Thread):
                                 self.__recv_data_queue.put(next_instr)
                                 
                             except: 
-                                # time.sleep(0.2)
+                                time.sleep(0.2)
                                 dbg.flags.cond_print("missed second wait try")
                                 try: 
                                     data = self.__s.recv(self.__buffer_size)

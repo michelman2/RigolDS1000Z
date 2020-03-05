@@ -40,6 +40,8 @@ class FFTModule:
         window_start_idx = self.find_idx_in_sorted_list(tuple_time , window_start_time)
         window_end_idx = self.find_idx_in_sorted_list(tuple_time , window_end_time)
 
+        
+
         windowed_time = tuple_time[window_start_idx:window_end_idx]
         windowed_val = tuple_val[window_start_idx:window_end_idx]
    
@@ -52,7 +54,6 @@ class FFTModule:
         
         freq = np.linspace(0 , 1/T , N)
         fft = np.fft.fft(windowed_val)
-
         ## the return value is as follows: 
         ## [(fft x , fft y) , (fft win start time , fft win end time)]
         return [(freq[:N//2] , np.abs(fft[:N//2])*(1/N)) , (windowed_time[0] , windowed_time[-1])]
