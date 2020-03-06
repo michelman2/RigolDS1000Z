@@ -254,15 +254,19 @@ class cmdObj:
 
 
     def set_answer(self , answer:str):
-        self.answer = answer
-
+        parser:cmdParsedObj = self.get_parser()
+        if(parser == None): 
+            self.__parser = cmdParsedObj(self.answer)
+        else:
+            self.answer = answer
+            parser.set_parser_answer(answer)
+            
     def get_answer(self): 
         return self.answer
         
     def get_parser(self): 
-        if(self.__parser == None):
-            
-            self.__parser = cmdParsedObj(self.answer)
+        if(self.__parser == None):            
+            self.__parser = cmdParsedObj()
                     
         return self.__parser
 
@@ -278,21 +282,28 @@ class cmdParsedObj:
 
     __response_type = None 
 
-    def __init__(self , received_resp): 
+    def __init__(self , received_resp=None):
+        if(received_resp != None): 
+            self.__received_resp = received_resp
+            self.__parse()
+    
+    def set_parser_answer(self , received_resp:str): 
+        
         self.__received_resp = received_resp
         self.__parse()
-
+        
     def __parse(self):
         """
             tries to parse the string of reponse according to 
             the response type
         """
-        if(self.__check_data_answer() != None): 
+        
+        if(self.__check_data_answer() != None):             
             response = self.__check_data_answer()
             self.data_idx = response[0]
             self.data_val = response[1]
             self.__response_type = SCPI_RESPONSE_TYPE.DATA_PAIR            
-
+        
         elif(self.__check_preamble_answer() != None): 
             self.preamble = self.__check_preamble_answer()
             self.__response_type = SCPI_RESPONSE_TYPE.PREAMBLE
@@ -307,6 +318,9 @@ class cmdParsedObj:
     def get_response_type(self)->SCPI_RESPONSE_TYPE: 
         return self.__response_type
 
+    def set_response_type(self, resp:SCPI_RESPONSE_TYPE):
+        if(dbg.flags.LOOPBACK): 
+            self.__response_type = resp
     
 
     def __check_data_answer(self):
@@ -317,10 +331,13 @@ class cmdParsedObj:
         """
         answer = None 
         
-        if(dbg.flags.LOOPBACK): 
-            ## when the loopback is on, the answer is a sinusoid tuple
-            answer = (self.__received_resp[0] , self.__received_resp[1])
+        if(dbg.flags.LOOPBACK):            
+            
+            if(self.__response_type == SCPI_RESPONSE_TYPE.DATA_PAIR): 
+                answer = (self.__received_resp[0] , self.__received_resp[1])
+            
         else: 
+            
             self._data_header_sharp_sign = self.__received_resp[0]        
             if(chr(self._data_header_sharp_sign) == '#'):             
                 self._data_header_N = self.__received_resp[1]
@@ -347,15 +364,27 @@ class cmdParsedObj:
 
     def __check_preamble_answer(self): 
         
-        answer = None 
-        try: 
-            split_data = self.__received_resp.split(',')
-            if(len(split_data) == 10): 
+        answer = None
+        if(dbg.flags.LOOPBACK): 
+            if(self.__response_type == SCPI_RESPONSE_TYPE.PREAMBLE):
+                answer = [1,2,3,4]
+
+        else: 
+            try: 
+                ## decoding data from binary to string format
+                self.__received_resp = self.__received_resp.decode()
+                ## removing the last element of data, as it is \n char
+                self.__received_resp = self.__received_resp[0:len(self.__received_resp)-1]
+                ## split data to array 
+                split_data = self.__received_resp.split(',')
                 
+                ## check the number of preamble, specified in the data sheet
+                if(len(split_data) == 10): 
                     float_preamble = [float(x) for x in split_data]
                     answer = float_preamble
-        except: 
-            answer = None 
+
+            except:
+                answer = None 
 
         return answer
 

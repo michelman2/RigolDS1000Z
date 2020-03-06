@@ -42,7 +42,7 @@ class FFTController:
                                                                                     self.window_duration,
                                                                                     current_start)
                     
-                        # self.frame_queue.put([fft_tuple , time_window_tuple])
+                        
                         self.frame_list.append([fft_tuple , time_window_tuple])
 
                 else: 
@@ -50,17 +50,12 @@ class FFTController:
                                                                                     self.window_duration,
                                                                                     self.window_start_time)
 
-                    # self.frame_queue.put([fft_tuple , time_window_tuple])
+                   
                     self.frame_list.append([fft_tuple , time_window_tuple])
 
                 self.operation_done = True
 
-            # if(self.operation_done): 
-            #     print("////////////////////////////// done fft {}".format(len(self.frame_list)))
-
-    # def set_oscill_data_tuple(self , data_tuple): 
-    #     self.data_tuple = data_tuple
-    #     self.frame_queue.queue.clear()
+            
 
     def is_operation_done(self): 
         return self.operation_done

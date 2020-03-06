@@ -38,6 +38,9 @@ class MainWindow(QtGui.QMainWindow):
     fourier_dispatched_queue = LimitedQueue.LimitedQueue(10)
     fourier_finished_queue = LimitedQueue.LimitedQueue(10)
     oscilloscope_data = None
+    oscilloscope_preamble = None
+    vlines_min_per_ch = [None , None , None , None]
+    vlines_max_per_ch = [None , None , None , None]
 
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
@@ -52,7 +55,7 @@ class MainWindow(QtGui.QMainWindow):
     def box_state_checker(self): 
         print("checkded")
         if(self.login_widget.getRunFFT()): 
-            self.timer.setInterval(200)
+            self.timer.setInterval(40)
             pass
         else: 
             self.timer.setInterval(40)
@@ -66,19 +69,20 @@ class MainWindow(QtGui.QMainWindow):
         self.timer.setInterval(40)
         self.timer.timeout.connect(self.updater)
         self.timer.start(0)
-
-    def updater(self):
-        
+    
+    def updater(self):        
 
         curves = self.login_widget.getCurves()
-        plotters = self.login_widget.getPlotters()
         vline1_curves = self.login_widget.getVline1Curves()
         vline2_curves = self.login_widget.getVline2Curves()
 
         oscilloscope_data:rs.cmdObj = self.oscilloscope_data
+        oscilloscope_preamble:rs.cmdObj = self.oscilloscope_preamble
+
         pause_update = self.login_widget.getRunFFT()
 
-        if(oscilloscope_data != None): 
+        
+        if(oscilloscope_data != None):
             if(oscilloscope_data.get_parser().get_response_type() == rs.SCPI_RESPONSE_TYPE.DATA_PAIR): 
                 if(not pause_update):
                     self.fourier_ready_list= [None , None , None , None]
@@ -110,6 +114,8 @@ class MainWindow(QtGui.QMainWindow):
                             self.fourier_frames[current_fourier_channel] = fourier_ready.get_iterable_frames()
                             x = fourier_ready.get_command_object().get_parser().get_data_idx()
                             y = fourier_ready.get_command_object().get_parser().get_data_val()
+                            self.vlines_min_per_ch[current_fourier_channel] = np.min(y)
+                            self.vlines_max_per_ch[current_fourier_channel] = np.max(y)
                             curves[current_fourier_channel][0].setData(x , y)
 
                     
@@ -121,15 +127,17 @@ class MainWindow(QtGui.QMainWindow):
                                 fourier_y = fourier_frame[0][1]
                                 fourier_win_start = fourier_frame[1][0]
                                 fourier_win_end = fourier_frame[1][1]
-                                curves[idx][1].setData(fourier_x , fourier_y)
+                                curves[idx][1].setData(fourier_x[10:] , fourier_y[10:])
                                 
-                                pg.setConfigOption('foreground' , 'b')
+                            
                                 vline1_curves[idx][0].setData([fourier_win_start , fourier_win_start] ,
-                                                            [60,200])
+                                                            [self.vlines_min_per_ch[idx] , self.vlines_max_per_ch[idx]])
                                 vline2_curves[idx][0].setData([fourier_win_end , fourier_win_end], 
-                                                            [60,200])
-                                pg.setConfigOption('foreground' , 'w')
-        # self.curve.setData(self.data)
+                                                            [self.vlines_min_per_ch[idx] , self.vlines_max_per_ch[idx]])
+                   
+        
+        # if(oscilloscope_preamble != None): 
+        #     print(oscilloscope_preamble.get_parser().get)
 
     def set_observable(self , observable:ct.ConsoleControl): 
         self.observable = observable
@@ -138,44 +146,44 @@ class MainWindow(QtGui.QMainWindow):
         time.sleep(1)
         while(True): 
             time.sleep(0.1)
+            ## try to read data from data queue
             try: 
-                self.oscilloscope_data:rs.cmdObj = self.observable.get_tcp_data()
+                self.oscilloscope_data:rs.cmdObj = self.observable.get_tcp_data()                
+
+            
+                if(self.oscilloscope_data != None): 
                 
+                    if(self.fourier_dispatched_queue.has_space()): 
+                        if(dbg.flags.LOOPBACK): 
+                            fft_object = FFTController.FFTControllerOscillAdapter(self.oscilloscope_data,
+                                                                                window_duration=1,
+                                                                                window_start_time=0,
+                                                                                number_of_steps =200,
+                                                                                animated=True)
+                        
+                        else:
+                            fft_object = FFTController.FFTControllerOscillAdapter(self.oscilloscope_data,
+                                                                                window_duration=100,
+                                                                                window_start_time=0,
+                                                                                number_of_steps=200,
+                                                                                animated=True)
+
+
+                        fft_object.start_calc_thread()
+                        
+                    
+                        self.fourier_dispatched_queue.put(fft_object)
+
             except:
                 pass 
+
+            ## try to read data from preamble queue
+            try: 
+                self.oscilloscope_preamble:rs.cmdObj = self.observable.get_tcp_preamble()
+
+            except: 
+                pass
             
-            
-            if(self.oscilloscope_data != None): 
-                if(self.oscilloscope_data.get_active_channel() == rs.RIGOL_CHANNEL_IDX.CH3): 
-                    # print("************ 3")
-                    pass
-                    
-                elif(self.oscilloscope_data.get_active_channel() == rs.RIGOL_CHANNEL_IDX.CH4): 
-                    # print("************ 4")
-                    pass
-                ## keep the list to a limited size
-                
-                if(self.fourier_dispatched_queue.has_space()): 
-                    if(dbg.flags.LOOPBACK): 
-                        fft_object = FFTController.FFTControllerOscillAdapter(self.oscilloscope_data,
-                                                                            window_duration=1,
-                                                                            window_start_time=0,
-                                                                            animated=True)
-                    
-                    else:
-                        fft_object = FFTController.FFTControllerOscillAdapter(self.oscilloscope_data,
-                                                                            window_duration=100,
-                                                                            window_start_time=0,
-                                                                            number_of_steps=200,
-                                                                            animated=True)
-
-
-                    fft_object.start_calc_thread()
-                    
-                   
-                    self.fourier_dispatched_queue.put(fft_object)
-
-                
 
     def read_fourier_list(self):
         while(True):  

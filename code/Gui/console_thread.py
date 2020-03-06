@@ -8,6 +8,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from tkinter import *
 import threading
+import sys
 
 import Rigol_Lib.RigolSCPI as rs
 import TCPconnection.MessageIterables as mi
@@ -42,6 +43,7 @@ class ConsoleControl:
     # tcp_resp_queue = queue.Queue()
     tcp_resp_queue = LimitedQueue.LimitedQueue(queue_max_size)
     fft_resp_queue = LimitedQueue.LimitedQueue(queue_max_size)
+    tcp_preamble_queue = LimitedQueue.LimitedQueue(queue_max_size)
 
     tcp_resp_data_queue = LimitedQueue.LimitedQueue(queue_max_size)
     
@@ -62,7 +64,6 @@ class ConsoleControl:
     def run(self):
         
         try:
-            
             ## create commands: 
             cmd_initiate_oscilloscope = self.rigol_commander.initalize_data_query_byte(rs.RIGOL_CHANNEL_IDX.CH4)
             cmd_ask_data_oscilloscope = self.rigol_commander.ask_oscilloscope_for_data()
@@ -78,50 +79,53 @@ class ConsoleControl:
             self.tcp_thread.start()
 
             latest_channel = rs.RIGOL_CHANNEL_IDX.CH4
+            last_cmd_preamble = False
+
+            ## Main loop of the thread
             while(True):
                 time.sleep(0.1)
                 if(self.pause_tcp_connection):                    
                     while(self.doorbell_obj.is_data_new()):
                         pass
 
-                    ## just to generate channel commands for the 
-                    ## osciolloscope
                     if(latest_channel == rs.RIGOL_CHANNEL_IDX.CH3):  
                         latest_channel = rs.RIGOL_CHANNEL_IDX.CH4
 
                     elif(latest_channel == rs.RIGOL_CHANNEL_IDX.CH4): 
                         latest_channel = rs.RIGOL_CHANNEL_IDX.CH3
-                        
 
-                    cmd_initiate_oscilloscope = self.rigol_commander.initalize_data_query_byte(latest_channel)
-                    cmd_ask_data_oscilloscope = self.rigol_commander.ask_oscilloscope_for_data()
-                    cmd_initiate_oscilloscope.append(cmd_ask_data_oscilloscope)
+
                     
-                    self.doorbell_obj.put_data_to_doorbell(cmd_initiate_oscilloscope)   ## put date to doorbell
+                    if(True): 
+                        last_cmd_preamble = False
+                        cmd_initiate_oscilloscope = self.rigol_commander.initalize_data_query_byte(latest_channel)
+                        cmd_ask_data_oscilloscope = self.rigol_commander.ask_oscilloscope_for_data()
+                        cmd_initiate_oscilloscope.append(cmd_ask_data_oscilloscope) 
+                        self.doorbell_obj.put_data_to_doorbell(cmd_initiate_oscilloscope) 
+
+                    # if(not last_cmd_preamble): 
+                    # if(True):
+                    #     last_cmd_preamble = True
+                    #     cmd_ask_preamble = self.rigol_commander.ask_for_preamble(latest_channel)
+                    #     self.doorbell_obj.put_data_to_doorbell(cmd_ask_preamble)
                     
-                    ## last data
+
+                    ## Check the response of the oscilloscope
                     last_tcp_data:rs.cmdObj = self.tcp_connection.get_data()
-                    if(last_tcp_data != None): 
-                        
-                        
-                        self.tcp_resp_queue.put(last_tcp_data)
-                        
-                        ########### extract tcp data here: instead of gui
+
+                    if(last_tcp_data != None):                         
+                                            
                         response_type = last_tcp_data.get_parser().get_response_type()
-                        
-                        if(response_type == rs.SCPI_RESPONSE_TYPE.DATA_PAIR):
-                            
+
+                        if(response_type == rs.SCPI_RESPONSE_TYPE.DATA_PAIR):                            
                             self.tcp_resp_data_queue.put(last_tcp_data)
-                            # print("************* data type {}".format(last_tcp_data.get_active_channel()))
+                            
+                        elif(response_type == rs.SCPI_RESPONSE_TYPE.PREAMBLE): 
+                            self.tcp_preamble_queue.put(last_tcp_data)
 
-
-                        
                     
                     dbg.flags.cond_print(self.tcp_resp_queue.qsize())
-                    
-
-            pass
-
+       
         except:
             self.tcp_connection.close_conn() 
             raise 
@@ -133,13 +137,18 @@ class ConsoleControl:
         return self.tcp_connection.get_last_data()
 
     def get_tcp_data(self):   
-        if(not self.tcp_resp_queue.empty()): 
-            # data = self.tcp_resp_queue.get()
+        if(not self.tcp_resp_data_queue.empty()): 
             data = self.tcp_resp_data_queue.get_nowait()
             return data
         else: 
             return None
-        
+
+    def get_tcp_preamble(self): 
+        if(not self.tcp_preamble_queue.empty()): 
+            preamble = self.tcp_preamble_queue.get_nowait()
+            return preamble
+        else: 
+            return None        
 
     def pause_tcp_connection(self): 
         self.__pause_tcp_conn = True
