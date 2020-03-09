@@ -44,16 +44,20 @@ class RigolCommander:
         """
         message_list = []
         message_list.append(self.scpi_lib.query_waveform_data())
+
         message_list[-1].get_parser().set_response_type(rscpi.SCPI_RESPONSE_TYPE.DATA_PAIR)
         message_list[-1].set_active_channel(self.__last_active_chanel)
+
         return self.__wrap_in_message_holder(message_list)
 
     def ask_for_preamble(self , chann): 
         message_list = []
         self.__last_active_chanel = chann
         message_list.append(self.scpi_lib.set_waveform_source(chann))
+
         message_list.append(self.scpi_lib.query_waveform_preamble())
         message_list[-1].get_parser().set_response_type(rscpi.SCPI_RESPONSE_TYPE.PREAMBLE)
+
         return self.__wrap_in_message_holder(message_list)
 
     def ask_for_active_channel(self): 

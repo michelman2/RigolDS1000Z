@@ -51,9 +51,11 @@ class TCPcomm(threading.Thread):
 
         while(True): 
             time.sleep(0.1)
+            
             while(doorbell_obj.is_data_new() == False): 
                 pass 
-            
+        
+
             mi = doorbell_obj.pick_data_from_doorbell()
 
             ## the message iterator (mi) is filled with instructions of rigol

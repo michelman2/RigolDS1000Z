@@ -26,6 +26,7 @@ import time
 import queue
 from TransactionMeans import LimitedQueue
 from debug import debug_instr as dbg
+from Rigol_util import Oscilloscope_model
 
 class ConsoleControl: 
     """ 
@@ -36,15 +37,29 @@ class ConsoleControl:
         Can be launched in a second thread (the run method) when using gui applications
 
     """
-    
+    ## Archaic: better to be implemented using Queue.queue (thread safe)
     global doorbell_obj # doorbell objet is used between the thread running this class and the thread handling tcp connections
+    
+    ## doorbell_queue: A better implementation of of doorbell obj
+    # doorbell_queue:LimitedQueue = LimitedQueue.LimitedQueue(10)
 
+    ## oscilloscope model holds the state of the oscilloscope at each time
+    my_oscilloscope:Oscilloscope_model.Oscilloscope = Oscilloscope_model.Oscilloscope(avaialable_ch=[rs.RIGOL_CHANNEL_IDX.CH3, 
+                                                                rs.RIGOL_CHANNEL_IDX.CH4])
+
+    ## maximum queue sizes: used for limited queue
     queue_max_size = 10
-    # tcp_resp_queue = queue.Queue()
+    
+    ## A queue to hold all responses (preamable, data and fft) received over tcp
     tcp_resp_queue = LimitedQueue.LimitedQueue(queue_max_size)
+
+    ## Where is it used ? 
     fft_resp_queue = LimitedQueue.LimitedQueue(queue_max_size)
+
+    ## A queue to hold tcp preamble responses (message passing between this obj thread and gui)
     tcp_preamble_queue = LimitedQueue.LimitedQueue(queue_max_size)
 
+    ## A queue to hold tcp response data
     tcp_resp_data_queue = LimitedQueue.LimitedQueue(queue_max_size)
     
 
@@ -78,7 +93,8 @@ class ConsoleControl:
             self.tcp_thread.daemon = True
             self.tcp_thread.start()
 
-            latest_channel = rs.RIGOL_CHANNEL_IDX.CH4
+            
+            self.my_oscilloscope.set_active_channel(rs.RIGOL_CHANNEL_IDX.CH4)
             last_cmd_preamble = False
 
             ## Main loop of the thread
@@ -88,13 +104,9 @@ class ConsoleControl:
                     while(self.doorbell_obj.is_data_new()):
                         pass
 
-                    if(latest_channel == rs.RIGOL_CHANNEL_IDX.CH3):  
-                        latest_channel = rs.RIGOL_CHANNEL_IDX.CH4
 
-                    elif(latest_channel == rs.RIGOL_CHANNEL_IDX.CH4): 
-                        latest_channel = rs.RIGOL_CHANNEL_IDX.CH3
-
-
+                    latest_channel = self.my_oscilloscope.get_next_channel()
+                    self.my_oscilloscope.set_active_channel(latest_channel)
                     
                     if(True): 
                         last_cmd_preamble = False
@@ -102,21 +114,21 @@ class ConsoleControl:
                         cmd_ask_data_oscilloscope = self.rigol_commander.ask_oscilloscope_for_data()
                         cmd_initiate_oscilloscope.append(cmd_ask_data_oscilloscope) 
                         self.doorbell_obj.put_data_to_doorbell(cmd_initiate_oscilloscope) 
-
-                    # if(not last_cmd_preamble): 
+                        
+                    if(not last_cmd_preamble): 
                     # if(True):
-                    #     last_cmd_preamble = True
-                    #     cmd_ask_preamble = self.rigol_commander.ask_for_preamble(latest_channel)
-                    #     self.doorbell_obj.put_data_to_doorbell(cmd_ask_preamble)
+                        last_cmd_preamble = True
+                        cmd_ask_preamble = self.rigol_commander.ask_for_preamble(latest_channel)
+                        self.doorbell_obj.put_data_to_doorbell(cmd_ask_preamble)
                     
 
                     ## Check the response of the oscilloscope
                     last_tcp_data:rs.cmdObj = self.tcp_connection.get_data()
 
                     if(last_tcp_data != None):                         
-                                            
+                        ## get response type
                         response_type = last_tcp_data.get_parser().get_response_type()
-
+                        
                         if(response_type == rs.SCPI_RESPONSE_TYPE.DATA_PAIR):                            
                             self.tcp_resp_data_queue.put(last_tcp_data)
                             
