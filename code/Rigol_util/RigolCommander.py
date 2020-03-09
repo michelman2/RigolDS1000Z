@@ -57,6 +57,7 @@ class RigolCommander:
 
         message_list.append(self.scpi_lib.query_waveform_preamble())
         message_list[-1].get_parser().set_response_type(rscpi.SCPI_RESPONSE_TYPE.PREAMBLE)
+        message_list[-1].set_active_channel(self.__last_active_chanel)
 
         return self.__wrap_in_message_holder(message_list)
 

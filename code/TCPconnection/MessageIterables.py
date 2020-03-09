@@ -10,27 +10,29 @@ import abc
 
 ## abstract class as an interface for iterating through message lists
 #  Any class implementing this has to be iterable
-class MessageIterable(abc.ABC): 
-    def next(self): 
-        pass 
-    def has_next(self): 
-        pass 
+# class MessageIterable(abc.ABC): 
+#     def next(self): 
+#         pass 
+#     def has_next(self): 
+#         pass 
 
 
     
-class IterMessageList(MessageIterable):
+class IterMessageList:
     """ 
         returns iterable lists of messages
     """ 
     __list_len = 0 
     __current_list_index = 0 
 
+    __resettable = False
 
-    def __init__(self , message:list): 
+    def __init__(self , message:list, resettable=False): 
         """
             initializing with a message list 
         """
         self.__message = message
+        self.__resettable = resettable
 
         if(not isinstance(message , list)): 
             raise EXC_INVALID_ARG
@@ -55,6 +57,12 @@ class IterMessageList(MessageIterable):
         if(self.__list_len > self.__current_list_index): 
             message = self.__message[self.__current_list_index]
             self.__current_list_index = self.__current_list_index + 1
+            
+            ## reset the message in the message list
+            if(self.__current_list_index == self.__list_len): 
+                if(self.__resettable == True): 
+                    self.__current_list_index = 0
+
             return message
         else: 
             raise ITERABLE_ACCESS_OUTOFRANGE

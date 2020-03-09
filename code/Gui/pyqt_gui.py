@@ -38,7 +38,7 @@ class MainWindow(QtGui.QMainWindow):
     fourier_dispatched_queue = LimitedQueue.LimitedQueue(10)
     fourier_finished_queue = LimitedQueue.LimitedQueue(10)
     oscilloscope_data = None
-    oscilloscope_preamble = None
+    
     vlines_min_per_ch = [None , None , None , None]
     vlines_max_per_ch = [None , None , None , None]
 
@@ -77,7 +77,7 @@ class MainWindow(QtGui.QMainWindow):
         vline2_curves = self.login_widget.getVline2Curves()
 
         oscilloscope_data:rs.cmdObj = self.oscilloscope_data
-        oscilloscope_preamble:rs.cmdObj = self.oscilloscope_preamble
+        # oscilloscope_preamble:rs.cmdObj = self.oscilloscope_preamble
 
         pause_update = self.login_widget.getRunFFT()
 
@@ -88,16 +88,16 @@ class MainWindow(QtGui.QMainWindow):
                     self.fourier_ready_list= [None , None , None , None]
                     self.fourier_frames = [None , None , None , None]
                 
-                    x = oscilloscope_data.get_parser().get_data_idx()
-                    y = oscilloscope_data.get_parser().get_data_val()
-
+                    
+                    x = oscilloscope_data.get_parser().get_data_x()
+                    y = oscilloscope_data.get_parser().get_data_y()
+                    
                     self.active_channel = oscilloscope_data.get_active_channel()
 
                     if(x != None and y!= None): 
-                        if(self.active_channel == rs.RIGOL_CHANNEL_IDX.CH4): 
-                            curves[self.active_channel.get_data_val()][0].setData(x , y)
-                        else: 
-                            curves[self.active_channel.get_data_val()][0].setData(x,y)
+                        
+                        curves[self.active_channel.get_data_val()][0].setData(x , y)
+                        
 
                 else:
                     try: 
@@ -113,7 +113,7 @@ class MainWindow(QtGui.QMainWindow):
                             self.fourier_ready_list[current_fourier_channel] = fourier_ready
                             self.fourier_frames[current_fourier_channel] = fourier_ready.get_iterable_frames()
                             x = fourier_ready.get_command_object().get_parser().get_data_idx()
-                            y = fourier_ready.get_command_object().get_parser().get_data_val()
+                            y = fourier_ready.get_command_object().get_parser().get_data_y_idx()
                             self.vlines_min_per_ch[current_fourier_channel] = np.min(y)
                             self.vlines_max_per_ch[current_fourier_channel] = np.max(y)
                             curves[current_fourier_channel][0].setData(x , y)

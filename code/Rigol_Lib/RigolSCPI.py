@@ -1,6 +1,6 @@
 import enum 
 from debug import debug_instr as dbg
-
+import numpy as np
 
 class RIGOL_WAVEFORM_FORMAT(enum.Enum): 
     WORD = 0 
@@ -241,6 +241,7 @@ class cmdObj:
     __parser = None
     __active_channel_for_cmd = None
 
+
     def __init__(self , cmd_string, needs_answer): 
         self.__cmd = cmd_string
         self.__needs_answer = needs_answer
@@ -281,6 +282,10 @@ class cmdObj:
 class cmdParsedObj: 
 
     __response_type = None 
+    __x_scale_factor = 1 
+    __y_scale_factor = 1 
+    __y_origin = 0
+    __x_origin = 0 
 
     def __init__(self , received_resp=None):
         if(received_resp != None): 
@@ -304,7 +309,7 @@ class cmdParsedObj:
             self.data_val = response[1]
             self.__response_type = SCPI_RESPONSE_TYPE.DATA_PAIR            
         
-        elif(self.__check_preamble_answer() != None): 
+        elif(self.__check_preamble_answer() != None):
             self.preamble = self.__check_preamble_answer()
             self.__response_type = SCPI_RESPONSE_TYPE.PREAMBLE
 
@@ -363,20 +368,21 @@ class cmdParsedObj:
         return answer
 
     def __check_preamble_answer(self): 
-        
         answer = None
         if(dbg.flags.LOOPBACK): 
             if(self.__response_type == SCPI_RESPONSE_TYPE.PREAMBLE):
                 answer = [1,2,3,4]
 
         else: 
-            try: 
+            try:
                 ## decoding data from binary to string format
-                self.__received_resp = self.__received_resp.decode()
+                temp_received_resp = self.__received_resp.decode()
+
                 ## removing the last element of data, as it is \n char
-                self.__received_resp = self.__received_resp[0:len(self.__received_resp)-1]
+                temp_received_resp = temp_received_resp[0:len(temp_received_resp)-1]
+
                 ## split data to array 
-                split_data = self.__received_resp.split(',')
+                split_data = temp_received_resp.split(',')
                 
                 ## check the number of preamble, specified in the data sheet
                 if(len(split_data) == 10): 
@@ -407,111 +413,114 @@ class cmdParsedObj:
     def get_data_idx(self): 
         return self.data_idx
 
-    def get_data_val(self): 
+    def get_data_x(self): 
+        return list(np.add(np.multiply(self.data_idx , self.__x_scale_factor) , self.__x_origin))
+
+    def get_data_y(self): 
+        return list(np.subtract(np.multiply(self.data_val , self.__y_scale_factor) , self.__y_offset*self.__y_scale_factor))
+
+    def get_data_y_idx(self): 
         return self.data_val
     
     def get_preamble(self): 
         return self.preamble
 
+    def set_x_scale_factor(self , s_factor:float): 
+        self.__x_scale_factor = s_factor
+
+    def set_y_scale_factor(self , s_factor:float): 
+        self.__y_scale_factor = s_factor
+
+    def get_y_scale_factor(self)->float: 
+        return self.__y_scale_factor
+
+    def set_y_offset(self , y_offset:float): 
+        self.__y_offset = y_offset
+
+    def set_x_origin(self , x_orig:float): 
+        self.__x_origin = x_orig
+
+    
 class RigolSCPI: 
     def autoscale(self): 
         ## this command does not work when a auto mode is 
-        #  disabled 
         
-        # return ":autoscale\n"
         return cmdObj(":autoscale\n" , needs_answer = False)
 
     def clear(self): 
         ## clears all the waveforms on the screen
-        # return ":clear\n"
         return cmdObj(":clear\n" , needs_answer = False)
 
     def run(self): 
         ## The same as RUN button on the oscilloscope
-        # return ":run\n"
         return cmdObj(":run\n" , needs_answer = False)
 
     def stop(self): 
         ## The same as STOP button on the oscilloscope
-        # return ":stop\n"
         return cmdObj(":stop\n" , needs_answer = False)
 
     def single(self): 
         ## single trigger on oscilloscope
-        # return ":single\n"
         return cmdObj(":single\n" , needs_answer = False)
 
     def tforce(self): 
         ## make a trigger signal forcefully
-        # return ":tforce\n"
         return cmdObj(":tforce\n" , needs_answer = False)
 
     def tlhalf(self): 
         ## sets the trigger to the mid point of trigger
-        # signal amplitude
-        # return ":tlhalf\n"
+        ## signal amplitude
         return cmdObj(":tlhalf\n" , needs_answer = False)
 
     def clear_status(self): 
         ## clear all event registers and error queue
-        # return "*cls\n"
         return cmdObj("*cls\n" , needs_answer = False)
 
     def ese(self): 
         ## Set or query the enable register 
-        # for the standard event status register set.
-        # return "*ese\n"
+        ## for the standard event status register set.
         return cmdObj("*ese\n" , needs_answer = False)
 
     
     def identify_device(self): 
         ## Query the device information
-        # return "*idn?\n"
         return cmdObj("*idn?\n" , needs_answer = True)
 
     def is_operation_complete(self): 
         ## query if the operation on the oscilloscope is finished
-        # return "*opc?\n"
         return cmdObj("*opc?\n" , needs_answer = True)
 
     def factory_reset(self): 
         ## resets the device to factory settings
-        # return "*rst\n"
         return cmdObj("*rst\n" , needs_answer = False) 
 
     def set_sre(self , mask): 
         ## sets the enable register for the state byte register set
         # @param mask: 0 to 255, 0 is the defualt
         command = "*sre {0:.d}\n".format(mask)
-        # return command
         return cmdObj(command , needs_answer = False)
 
     def query_sre(self): 
         ## queries the enable register for the state byte register set
-        # return "*sre?\n"
         return cmdObj("*sre?\n" , needs_answer = True)
     
     def query_stb(self): 
         ## query the condition register for the state byte register set
-        # return "*stb?\n"
         return cmdObj("*stb?\n" , needs_answer = True)
 
     def test(self): 
         ## perform a self test on the device 
-        # return "*tst\n"
         return cmdObj("*tst\n" , needs_answer = True)
 
     ############################### 
     ## ACQUIRE COMMANDS
     def query_acquire_averages(self): 
         ## query the number of averages in average acquisition mode
-        # return ":acquire:averages?\n"
         return cmdObj(":acquire:averages?\n" , needs_answer = True)
 
     def set_acquire_averages(self , number_of_averages): 
         ## sets the number of averages in average acquisition mode
         # number of averages should be 2^n : n = 1 to 13 
-        # return
         cmd = ":acquire:averages {0:.d}\n".format(number_of_averages)
         return cmdObj(cmd , needs_answer = False)
 

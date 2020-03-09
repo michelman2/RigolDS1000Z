@@ -40,6 +40,10 @@ class ConsoleControl:
     ## Archaic: better to be implemented using Queue.queue (thread safe)
     global doorbell_obj # doorbell objet is used between the thread running this class and the thread handling tcp connections
     
+
+    command_counter = 0 
+   
+
     ## doorbell_queue: A better implementation of of doorbell obj
     # doorbell_queue:LimitedQueue = LimitedQueue.LimitedQueue(10)
 
@@ -96,6 +100,8 @@ class ConsoleControl:
             
             self.my_oscilloscope.set_active_channel(rs.RIGOL_CHANNEL_IDX.CH4)
             last_cmd_preamble = False
+            
+            preamble_ch_iterable = self.my_oscilloscope.get_channels_iterable()
 
             ## Main loop of the thread
             while(True):
@@ -104,21 +110,27 @@ class ConsoleControl:
                     while(self.doorbell_obj.is_data_new()):
                         pass
 
-
+                    ## The next available channel is requested from the oscilloscope
                     latest_channel = self.my_oscilloscope.get_next_channel()
+                    ## Active channel in the oscilloscope is changed osc model is not thread safe
                     self.my_oscilloscope.set_active_channel(latest_channel)
                     
                     if(True): 
-                        last_cmd_preamble = False
+                        ## set to send preamble code each 7 instrcts 
+                        self.command_counter += 1
+                       
                         cmd_initiate_oscilloscope = self.rigol_commander.initalize_data_query_byte(latest_channel)
                         cmd_ask_data_oscilloscope = self.rigol_commander.ask_oscilloscope_for_data()
                         cmd_initiate_oscilloscope.append(cmd_ask_data_oscilloscope) 
                         self.doorbell_obj.put_data_to_doorbell(cmd_initiate_oscilloscope) 
                         
-                    if(not last_cmd_preamble): 
-                    # if(True):
-                        last_cmd_preamble = True
-                        cmd_ask_preamble = self.rigol_commander.ask_for_preamble(latest_channel)
+                    ## send a request for preamble every 5 instructions, so as not to 
+                    ## obstruct data acquisition                    
+                    if(self.command_counter > 3): 
+
+                        self.command_counter = 0 
+                        next_ch_preamb_request = preamble_ch_iterable.next()
+                        cmd_ask_preamble = self.rigol_commander.ask_for_preamble(next_ch_preamb_request)
                         self.doorbell_obj.put_data_to_doorbell(cmd_ask_preamble)
                     
 
@@ -130,10 +142,20 @@ class ConsoleControl:
                         response_type = last_tcp_data.get_parser().get_response_type()
                         
                         if(response_type == rs.SCPI_RESPONSE_TYPE.DATA_PAIR):                            
-                            self.tcp_resp_data_queue.put(last_tcp_data)
+                            last_tcp_data.get_parser().set_x_scale_factor(self.my_oscilloscope.get_x_increment())
+                            y_sc_fact = self.my_oscilloscope.get_channel_y_increment(last_tcp_data.get_active_channel())
+                            y_offset = self.my_oscilloscope.get_channel_y_offset(last_tcp_data.get_active_channel())
+                            x_orig = self.my_oscilloscope.get_x_orig()
                             
-                        elif(response_type == rs.SCPI_RESPONSE_TYPE.PREAMBLE): 
-                            self.tcp_preamble_queue.put(last_tcp_data)
+                            last_tcp_data.get_parser().set_y_scale_factor(y_sc_fact)
+                            last_tcp_data.get_parser().set_x_origin(x_orig)
+                            last_tcp_data.get_parser().set_y_offset(y_offset)
+                            self.tcp_resp_data_queue.put(last_tcp_data)
+
+                            
+                            
+                        elif(response_type == rs.SCPI_RESPONSE_TYPE.PREAMBLE):
+                            self.my_oscilloscope.update_preamble(last_tcp_data)
 
                     
                     dbg.flags.cond_print(self.tcp_resp_queue.qsize())
@@ -161,6 +183,13 @@ class ConsoleControl:
             return preamble
         else: 
             return None        
+
+    
+    def get_oscilloscope_instance(self): 
+        """
+            returns the instance of the oscilloscope class
+        """
+        return self.my_oscilloscope
 
     def pause_tcp_connection(self): 
         self.__pause_tcp_conn = True
