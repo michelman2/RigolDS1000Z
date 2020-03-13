@@ -3,7 +3,7 @@ from TCPconnection import MessageIterables
 
 
 class Oscilloscope: 
-    # __channel_x_increments = [None , None , None , None]
+    
     __x_increments = 1 
     __channel_y_increments = [1 , 1 , 1 , 1]
     __channel_y_offset = [0,0,0,0]

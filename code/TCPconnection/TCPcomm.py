@@ -13,6 +13,7 @@ from termcolor import colored
 from decoder import SineCreator
 from debug import debug_instr as dbg
 from Rigol_Lib import RigolSCPI as rs 
+from Loopback_util import RigolOscillLB
 
 class TCPcomm(threading.Thread):    
     """
@@ -30,6 +31,7 @@ class TCPcomm(threading.Thread):
             initializing network connections and settings
             the ip is the autoip assigned to the rigol oscilloscope 
         """
+        self.__s = None 
         self.__buffer_size = 250000
         self.__ip = '169.254.16.79'
         self.__port = 5555
@@ -67,14 +69,14 @@ class TCPcomm(threading.Thread):
                     next_instr:rs.cmdObj = mi.next()
                     command_str = next_instr.get_cmd()
                     # print(command_str)
-                    self.tcp_send_wrapper(command_str.encode())
+                    self.__s.send(command_str.encode())
                     dbg.flags.cond_print(command_str)
                     
                     if(next_instr.needs_answer()):
                         try: 
-                            self.tcp_set_timeout_wrapper(0.3)
+                            self.__s.settimeout(0.3)
 
-                            data = self.tcp_recv_wrapper(self.__buffer_size)
+                            data = self.__s.recv(self.__buffer_size)
                             
                             next_instr.set_answer(data)
                             
@@ -135,47 +137,7 @@ class TCPcomm(threading.Thread):
             listener.inform()
             # listener.inform_last()
 
-    def tcp_send_wrapper(self, message): 
-        """ 
-            tcp send wrapper to add probing with loopback 
-        """ 
-        if(dbg.flags.LOOPBACK):
-            pass 
-        else:  
-            self.__s.send(message)
-
-    def tcp_set_timeout_wrapper(self , number): 
-        """ 
-            A wrapper function to add loopback functionality
-        """
-        if(dbg.flags.LOOPBACK): 
-            pass 
-        else: 
-            self.__s.settimeout(number)
-
-    def tcp_recv_wrapper(self , buffer_size): 
-        """ 
-            If loopback is on, the tcp is cut off and a sinosoid is returned
-        """
-        if(dbg.flags.LOOPBACK): 
-            sc = SineCreator.SineCreator()
-            getsine = sc.create_sine(number_of_samples = 5000 ,
-                                    time_frequency = 1 , 
-                                    time_length = 2 ,
-                                    init_phase_degree = 40 )
-            getsine2 = sc.create_sine(number_of_samples = 5000,
-                                    time_frequency = 5 , 
-                                    time_length = 2, 
-                                    init_phase_degree=0)
-
-
-
-            mixed_sine = sc.mix_sines([getsine , getsine2] , 2)
-            return mixed_sine
-
-        else: 
-            return self.__s.recv(buffer_size)
-
+   
     def get_data(self): 
         
         if(self.__recv_data_queue.qsize()>0): 
@@ -189,23 +151,24 @@ class TCPcomm(threading.Thread):
         """ 
             If the loopback mode is on, no actual connection to a socket needs to be made
         """
-        if(dbg.flags.LOOPBACK): 
-            pass 
-        else: 
-            try: 
+        
+        try: 
+            if(dbg.flags.LOOPBACK): 
+                self.__s = RigolOscillLB.RigolOscillLB()
+
+            else:
                 self.__s = socket.socket(socket.AF_INET , socket.SOCK_STREAM)
                 self.__s.setblocking(1)          
                 self.__s.connect((self.__ip , self.__port))
                 self.__s.settimeout(self.TIME_OUT)
-            except: 
+
+        except:
+            if(self.__s != None): 
                 self.__s.close()
-                raise 
+            raise 
 
     def close_conn(self): 
-        if(dbg.flags.LOOPBACK):
-            pass 
-        else: 
-            self.__s.close()
+        self.__s.close()
         
     def set_ip(self , ip):
         self.__ip = ip

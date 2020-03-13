@@ -303,7 +303,7 @@ class cmdParsedObj:
             the response type
         """
         
-        if(self.__check_data_answer() != None):             
+        if(self.__check_data_answer() != None):    
             response = self.__check_data_answer()
             self.data_idx = response[0]
             self.data_val = response[1]
@@ -335,66 +335,63 @@ class cmdParsedObj:
             Nxxxxxxx where x repeats N times
         """
         answer = None 
-        
-        if(dbg.flags.LOOPBACK):            
-            
-            if(self.__response_type == SCPI_RESPONSE_TYPE.DATA_PAIR): 
-                answer = (self.__received_resp[0] , self.__received_resp[1])
-            
-        else: 
-            
-            self._data_header_sharp_sign = self.__received_resp[0]        
-            if(chr(self._data_header_sharp_sign) == '#'):             
-                self._data_header_N = self.__received_resp[1]
-                number = self._data_header_N - 48
-                self._data_pts_count = list(self.__received_resp[2 : number + 2])
-                self._data_pts_count.reverse()
-                tens = 1
-                data_pts_count_all = 0
-                for digit in self._data_pts_count:                 
-                    real_digit = digit - 48
-                    data_pts_count_all = data_pts_count_all + tens * real_digit
-                    tens = 10 * tens
+       
+        self._data_header_sharp_sign = self.__received_resp[0]        
+        if(chr(self._data_header_sharp_sign) == '#'):             
+            self._data_header_N = self.__received_resp[1]
+            number = self._data_header_N - 48
+            self._data_pts_count = list(self.__received_resp[2 : number + 2])
+            self._data_pts_count.reverse()
+            tens = 1
+            data_pts_count_all = 0
+            for digit in self._data_pts_count:                 
+                real_digit = digit - 48
+                data_pts_count_all = data_pts_count_all + tens * real_digit
+                tens = 10 * tens
 
-                data_start_idx = number + 2 
-                useful_data = self.__received_resp[data_start_idx : data_start_idx + data_pts_count_all - 1]
-                data_value = []
-                data_idx = []
-                for i, data in enumerate(useful_data): 
-                    data_value.append(data)
-                    data_idx.append(i)
-                answer = (data_idx , data_value)
+            data_start_idx = number + 2 
+            useful_data = self.__received_resp[data_start_idx : data_start_idx + data_pts_count_all - 1]
+            data_value = []
+            data_idx = []
+            for i, data in enumerate(useful_data): 
+                data_value.append(data)
+                data_idx.append(i)
+            answer = (data_idx , data_value)
 
         return answer
 
     def __check_preamble_answer(self): 
+        """ 
+            checks to see if the variable __received_resp has the 
+            format of preamble
+        """
         answer = None
-        if(dbg.flags.LOOPBACK): 
-            if(self.__response_type == SCPI_RESPONSE_TYPE.PREAMBLE):
-                answer = [1,2,3,4]
+        
+        try:
+            ## decoding data from binary to string format
+            temp_received_resp = self.__received_resp.decode()
 
-        else: 
-            try:
-                ## decoding data from binary to string format
-                temp_received_resp = self.__received_resp.decode()
+            ## removing the last element of data, as it is \n char
+            temp_received_resp = temp_received_resp[0:len(temp_received_resp)-1]
 
-                ## removing the last element of data, as it is \n char
-                temp_received_resp = temp_received_resp[0:len(temp_received_resp)-1]
+            ## split data to array 
+            split_data = temp_received_resp.split(',')
+            
+            ## check the number of preamble, specified in the data sheet
+            if(len(split_data) == 10): 
+                float_preamble = [float(x) for x in split_data]
+                answer = float_preamble
 
-                ## split data to array 
-                split_data = temp_received_resp.split(',')
-                
-                ## check the number of preamble, specified in the data sheet
-                if(len(split_data) == 10): 
-                    float_preamble = [float(x) for x in split_data]
-                    answer = float_preamble
-
-            except:
-                answer = None 
+        except:
+            answer = None 
 
         return answer
 
     def __check_channel_answer(self): 
+        """ 
+            Looks for name "chan" in the response to see if a channel number
+            has been set for the oscilloscope
+        """
         
         chan_number = None 
         try: 
