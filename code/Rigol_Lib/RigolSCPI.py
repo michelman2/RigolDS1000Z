@@ -280,6 +280,10 @@ class cmdObj:
 
 
 class cmdParsedObj: 
+    """
+        Class holding parse inforamation of a response received 
+        from oscilloscope 
+    """
 
     __response_type = None 
     __x_scale_factor = 1 
@@ -303,27 +307,39 @@ class cmdParsedObj:
             the response type
         """
         
+        ## searches for data information in received responses
         if(self.__check_data_answer() != None):    
             response = self.__check_data_answer()
             self.data_idx = response[0]
             self.data_val = response[1]
             self.__response_type = SCPI_RESPONSE_TYPE.DATA_PAIR            
         
+        ## searches for preamble information in a response
         elif(self.__check_preamble_answer() != None):
             self.preamble = self.__check_preamble_answer()
             self.__response_type = SCPI_RESPONSE_TYPE.PREAMBLE
 
+        ## searches for channel number in a response
         elif(self.__check_channel_answer() != None): 
             self.channel = RIGOL_CHANNEL_IDX(self.__check_channel_answer())
             self.__response_type = SCPI_RESPONSE_TYPE.CHANNEL_NUMBER
 
     def get_channel(self)->RIGOL_CHANNEL_IDX: 
+        """
+            get parsed information about channel index 
+        """
         return self.channel
 
     def get_response_type(self)->SCPI_RESPONSE_TYPE: 
+        """
+            get response type from parsed information 
+        """
         return self.__response_type
 
     def set_response_type(self, resp:SCPI_RESPONSE_TYPE):
+        """
+            ???
+        """
         if(dbg.flags.LOOPBACK): 
             self.__response_type = resp
     
@@ -407,41 +423,72 @@ class cmdParsedObj:
             pass 
         return chan_number
 
-    def get_data_idx(self): 
+    def get_data_x_idx(self): 
         return self.data_idx
 
-    def get_data_x(self): 
+    def get_data_x(self):
+        """
+            returns the x value of parsed data from response (if the response
+            is data pair)
+        """ 
         return list(np.add(np.multiply(self.data_idx , self.__x_scale_factor) , self.__x_origin))
 
     def get_data_y(self): 
+        """
+            returns the y value of parsed data from response (if the response 
+            is data pair)
+        """
         return list(np.subtract(np.multiply(self.data_val , self.__y_scale_factor) , self.__y_offset*self.__y_scale_factor))
 
     def get_data_y_idx(self): 
+        """
+            returns the index of y values 
+        """
         return self.data_val
     
     def get_preamble(self): 
+        """
+            returns parsed preamble (if response was preamble) 
+        """
         return self.preamble
 
     def set_x_scale_factor(self , s_factor:float): 
+        """
+            setting the scale factor of x axis
+            (applicable for preamble response) 
+        """
         self.__x_scale_factor = s_factor
 
     def set_y_scale_factor(self , s_factor:float): 
+        """
+            setting the scale factor of y axis
+            (applicable for preamble responses)
+        """
         self.__y_scale_factor = s_factor
 
     def get_y_scale_factor(self)->float: 
+        """
+            returns scale factor of y axis 
+        """
         return self.__y_scale_factor
 
-    def set_y_offset(self , y_offset:float): 
+    def set_y_offset(self , y_offset:float):
+        """
+            returns scale factor of x axis 
+        """ 
         self.__y_offset = y_offset
 
     def set_x_origin(self , x_orig:float): 
+        """
+            returns current time offset 
+            (applicable for preamble responses) 
+        """
         self.__x_origin = x_orig
 
     
 class RigolSCPI: 
     def autoscale(self): 
         ## this command does not work when a auto mode is 
-        
         return cmdObj(":autoscale\n" , needs_answer = False)
 
     def clear(self): 

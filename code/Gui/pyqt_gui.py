@@ -51,6 +51,7 @@ class MainWindow(QtGui.QMainWindow):
         self.login_widget.button.clicked.connect(self.plotter)
         self.login_widget.check_box.stateChanged.connect(self.box_state_checker)
         self.central_widget.addWidget(self.login_widget)
+        self.timer = QtCore.QTimer()
 
     def box_state_checker(self): 
         print("checkded")
@@ -65,7 +66,7 @@ class MainWindow(QtGui.QMainWindow):
         
         # self.curve = self.login_widget.plot.getPlotItem().plot()
 
-        self.timer = QtCore.QTimer()
+        # self.timer = QtCore.QTimer()
         self.timer.setInterval(40)
         self.timer.timeout.connect(self.updater)
         self.timer.start(0)
@@ -77,8 +78,7 @@ class MainWindow(QtGui.QMainWindow):
         vline2_curves = self.login_widget.getVline2Curves()
 
         oscilloscope_data:rs.cmdObj = self.oscilloscope_data
-        # oscilloscope_preamble:rs.cmdObj = self.oscilloscope_preamble
-
+        
         pause_update = self.login_widget.getRunFFT()
 
         
@@ -112,7 +112,7 @@ class MainWindow(QtGui.QMainWindow):
                         if(self.fourier_ready_list[current_fourier_channel] == None):
                             self.fourier_ready_list[current_fourier_channel] = fourier_ready
                             self.fourier_frames[current_fourier_channel] = fourier_ready.get_iterable_frames()
-                            x = fourier_ready.get_command_object().get_parser().get_data_idx()
+                            x = fourier_ready.get_command_object().get_parser().get_data_x_idx()
                             y = fourier_ready.get_command_object().get_parser().get_data_y_idx()
                             self.vlines_min_per_ch[current_fourier_channel] = np.min(y)
                             self.vlines_max_per_ch[current_fourier_channel] = np.max(y)
@@ -136,8 +136,7 @@ class MainWindow(QtGui.QMainWindow):
                                                             [self.vlines_min_per_ch[idx] , self.vlines_max_per_ch[idx]])
                    
         
-        # if(oscilloscope_preamble != None): 
-        #     print(oscilloscope_preamble.get_parser().get)
+       
 
     def set_observable(self , observable:ct.ConsoleControl): 
         self.observable = observable
@@ -156,7 +155,7 @@ class MainWindow(QtGui.QMainWindow):
                     if(self.fourier_dispatched_queue.has_space()): 
                         if(dbg.flags.LOOPBACK): 
                             fft_object = FFTController.FFTControllerOscillAdapter(self.oscilloscope_data,
-                                                                                window_duration=1,
+                                                                                window_duration=100,
                                                                                 window_start_time=0,
                                                                                 number_of_steps =200,
                                                                                 animated=True)
@@ -168,13 +167,14 @@ class MainWindow(QtGui.QMainWindow):
                                                                                 number_of_steps=200,
                                                                                 animated=True)
 
-
+                        
                         fft_object.start_calc_thread()
                         
                     
                         self.fourier_dispatched_queue.put(fft_object)
 
             except:
+                raise
                 pass 
 
             ## try to read data from preamble queue
@@ -188,7 +188,6 @@ class MainWindow(QtGui.QMainWindow):
     def read_fourier_list(self):
         while(True):  
             time.sleep(0.1)
-            
             with self.fourier_list_lock: 
                 fourier_queue_head:FFTController.FFTControllerOscillAdapter = self.fourier_dispatched_queue.get()
                 if(fourier_queue_head.is_operation_done()): 
@@ -273,14 +272,10 @@ class LoginWidget(QtGui.QWidget):
 
 
 if __name__ == '__main__':
-    
-    dbg.flags.cond_print("hellow")
-
     try: 
         console = ct.ConsoleControl()
         console_instance = threading.Thread(target=console.run)
-        console_instance.daemon = True 
-       
+        console_instance.daemon = True      
 
         
 

@@ -5,72 +5,74 @@ import Rigol_Lib.RigolSCPI as rs
 import TCPconnection.MessageIterables as mi
 import TCPconnection.TCPcomm as tcp
 import TCPconnection.TCPListener as tl
-import time 
 import threading
-from matplotlib import pyplot as plt
-from Rigol_util import RigolRespProc as rrp
 from Rigol_util import channelDataKeeper as cld
-from Rigol_util import Rigol_plotter as rigplot
+from Gui import controlAndProcess
+import queue
+import time
+from TransactionMeans import LimitedQueue
+
+class tester: 
+    
+    def __init__(self): 
+        self.__func_queue_conn = {}
 
 
+    def connect_f2q(self , func_ref_in_obj=None , queue_to_be_read=None): 
+        if(func_ref_in_obj == None or queue_to_be_read == None): 
+            raise MissingLinkInConnection
+        else: 
+            self.__func_queue_conn[func_ref_in_obj] = queue_to_be_read 
+
+
+    def perma_loop(self): 
+        
+        while(True): 
+            time.sleep(0.1) 
+            print("h")
+
+class MissingLinkInConnection(Exception): 
+    pass 
 
 if __name__ == "__main__": 
-    scpi_lib = rs.RigolSCPI()
+    log_list = []
 
-    message_list = [] 
+    myq = LimitedQueue.LimitedQueue(10)
+    mylist = range(100)
+    idx = 0
 
-    message_list.append(scpi_lib.identify_device())
-    message_list.append(scpi_lib.run())
-    message_list.append(scpi_lib.set_waveform_source(rs.RIGOL_CHANNEL_IDX.CH4))
-    message_list.append(scpi_lib.set_waveform_mode(rs.RIGOL_WAVEFORM_MODE.NORMAL))
-    message_list.append(scpi_lib.set_waveform_format(rs.RIGOL_WAVEFORM_FORMAT.BYTE))
-    message_list.append(scpi_lib.query_waveform_data())
+    process_model = controlAndProcess.ProcessModel()
+    process_model.connect_f2q(process_model.rawDataRead , myq)
 
-    ## Add messages to a message holder 
-    message_holder = mi.IterMessageList(message_list)
+    loopCount = 50
+    currnt_cnt = 0
 
-    ## Setting up tcp communication port
-    tcp_obj = tcp.TCPcomm()
-
-    ## establishing connections
-    tcp_obj.establish_conn()
-
-    ## Setting up a tcp listener 
-    tcp_listener = tl.TCPListener(tcp_obj)
-
-    ## Send a message tcp
-    tcp_obj.send_mesage(message_holder)
-
-
-    ## data holder object
-    ch4_dataholder = cld.channelDataKeeper(rs.RIGOL_CHANNEL_IDX.CH4)
     
-    
-    t = threading.Thread(target = tcp_obj.read_buffer)
-    t.daemon = True
-    t.start()
+    process_model.setProcessor(controlAndProcess.fftprocess)
 
-    ## get data from tcp listener
-    try: 
-        while(True): 
-            data = tcp_listener.get_first_in_queue()
-            # print(data)
-            if(data != None): 
-                oscill_data_index = []
-                oscill_data = []
-                rigol_resp = rrp.RigolRespProc(data)
-                
-                extracted_data = rigol_resp.getHeader()
-                ch4_dataholder.set_data(extracted_data)
+    while(currnt_cnt < loopCount):
+        print(currnt_cnt)
+        currnt_cnt += 1 
+        time.sleep(0.01)
+        if(idx >= len(mylist)): 
+            idx = 0 
+        myq.put(mylist[idx])
+        process_model.makeThread_RawDataReader()
+        idx += 1
 
-                # tcp_obj.send_mesage(recurr_mi)
-                data_ind = ch4_dataholder.get_data_idx()
-                data_val = ch4_dataholder.get_data_value()
+        output_queue = process_model.getOutputQueue()
+        while(not output_queue.empty()): 
+            try: 
+                current_proc = output_queue.get_nowait()
+                if(current_proc.is_process_alive()): 
+                    output_queue.put(current_proc)
+                else: 
+                    log_list.append(current_proc.get_response())
+            except: 
                 
-                if(data_ind != None and data_val != None): 
-                    plt.plot(data_ind , data_val)
-                    plt.show()
-                # print("a")
-    except KeyboardInterrupt: 
-        tcp_obj.close_conn()
-        exit()
+                pass 
+            
+            
+
+    print(process_model.getLogData())
+    print(log_list)

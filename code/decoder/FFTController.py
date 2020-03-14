@@ -26,7 +26,6 @@ class FFTController:
 
 
     def run(self):
-       
         while(not self.operation_done): 
             time.sleep(0.1)
             # print("############### {}".format(self.data_tuple!=None))
@@ -82,10 +81,12 @@ class FFTControllerOscillAdapter:
                     window_start_time,
                     number_of_steps,
                     animated = False):
+        
 
         self.oscill_cmd_object = oscill_cmd_obj
-        x = self.oscill_cmd_object.get_parser().get_data_idx()
-        y = self.oscill_cmd_object.get_parser().get_data_val()
+        
+        x = self.oscill_cmd_object.get_parser().get_data_x_idx()
+        y = self.oscill_cmd_object.get_parser().get_data_y_idx()
         self.data_tuple = (x , y)
 
         self.fft_controller = FFTController(self.data_tuple,
@@ -97,10 +98,6 @@ class FFTControllerOscillAdapter:
         self.fourier_thread = threading.Thread(target=self.run)
         self.fourier_thread.daemon = True 
 
-    # def __del__(self): 
-    #     # print("**************************** ffft stopped")
-    #     self.fourier_thread._stop()
-     
     def stop_thread(self): 
         self.fourier_thread._stop()
 
