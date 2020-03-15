@@ -2,9 +2,11 @@ import add_path
 add_path.add_subfolder_to_path("D:\\Academic\\General purpose\\communication stack\\rigol\\code")
 
 import Rigol_Lib.RigolSCPI as rs
+
 import TCPconnection.MessageIterables as mi
 import TCPconnection.TCPcomm as tcp
 import TCPconnection.TCPListener as tl
+
 import threading
 from Rigol_util import channelDataKeeper as cld
 from Gui import controlAndProcess
@@ -14,25 +16,14 @@ from TransactionMeans import LimitedQueue
 
 class tester: 
     
-    def __init__(self): 
-        self.__func_queue_conn = {}
-
-
-    def connect_f2q(self , func_ref_in_obj=None , queue_to_be_read=None): 
-        if(func_ref_in_obj == None or queue_to_be_read == None): 
-            raise MissingLinkInConnection
-        else: 
-            self.__func_queue_conn[func_ref_in_obj] = queue_to_be_read 
-
-
-    def perma_loop(self): 
+    def perma_loop(self):
         
         while(True): 
             time.sleep(0.1) 
             print("h")
 
-class MissingLinkInConnection(Exception): 
-    pass 
+
+
 
 if __name__ == "__main__": 
     log_list = []

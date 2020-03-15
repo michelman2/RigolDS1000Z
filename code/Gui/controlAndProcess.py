@@ -1,12 +1,11 @@
-from Gui import console_thread
+# from Gui import console_thread
 from Rigol_Lib import RigolSCPI
 from TransactionMeans import LimitedQueue
 import threading
 import queue
 import abc
 
-class MathProcess(abc.ABC):
-    
+class MathProcess(abc.ABC):    
     def __init__(self , input_token , threaded=True):
         if(threaded): 
             ## The input token can be of any form (raw token, cmdObj) 
@@ -24,6 +23,10 @@ class MathProcess(abc.ABC):
         return self.input_token
 
     @abc.abstractclassmethod
+    def get_response(self): 
+        pass 
+
+    @abc.abstractclassmethod
     def run_math_process(self): 
         """
             Runs the math process to function on data 
@@ -32,17 +35,24 @@ class MathProcess(abc.ABC):
         pass 
 
 class fftprocess(MathProcess): 
-    def __init__(self , input_token , threaded=True): 
-        super(fftprocess , self).__init__(input_token , threaded)
-
+    def __init__(self , input_token:RigolSCPI.cmdObj , threaded=True , kwargs_dict={}): 
+        super().__init__(input_token , threaded)
+        
     def run_math_process(self): 
-        self.__response = self.input_token * 2
+        input:RigolSCPI.cmdObj = self.input_token
+        self.__response = input.get_parser().get_response_type()
 
     def get_response(self): 
         return self.__response 
 
-class ProcessModel: 
 
+class ProcessModel: 
+    """ 
+        Model multithreaded processor. 
+        The model has a mathematical processor that needs to be set. 
+        Each token upon entry is put to an instant of the processor and 
+        the processing is launched in a thread. 
+    """ 
     def __init__(self): 
         self.__running_processes_queue:LimitedQueue.LimitedQueue = LimitedQueue.LimitedQueue(10)
         self.__rawDataReader_thread_ = None 
@@ -50,18 +60,20 @@ class ProcessModel:
         ## output pipe queue 
         self.__output_processes_queue:queue.Queue = queue.Queue()
         self.__math_processor:MathProcess = None 
+        self.__math_processor_args_dict:dict = {}
 
         self.__log_list = []
+        
 
 
 
-
-    def setProcessor(self, math_processor:MathProcess): 
+    def setProcessor(self, math_processor:MathProcess , **kwargs): 
         """ 
             Sets the type of the mathematical processor that is used
             for data
         """
         self.__math_processor = math_processor
+        self.__math_processor_args_dict = kwargs
         
 
 
@@ -103,12 +115,15 @@ class ProcessModel:
                     raw_data_token = connected_q.get_nowait()
                     self.__log_list.append(raw_data_token)
                     ## Launch a process with the input token
-                    math_proc = self.__math_processor(raw_data_token)
+                    
+                    math_proc = self.__math_processor(raw_data_token , True, 
+                                                        self.__math_processor_args_dict)
                     math_proc.start_process()
                     ## put the token into output queue
                     self.__output_processes_queue.put(math_proc)
-
+                    
                 except: 
+                    raise
                     pass 
         except: 
             raise

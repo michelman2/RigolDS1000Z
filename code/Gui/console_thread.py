@@ -27,6 +27,8 @@ import queue
 from TransactionMeans import LimitedQueue
 from debug import debug_instr as dbg
 from Rigol_util import Oscilloscope_model
+from Gui import controlAndProcess
+from decoder import FFTController
 
 class ConsoleControl: 
     """ 
@@ -43,6 +45,9 @@ class ConsoleControl:
 
     command_counter = 0 
    
+    data_processor = controlAndProcess.ProcessModel()
+    # processor_type = controlAndProcess.fftprocess
+    processor_type = FFTController.FFTObserver
 
     ## doorbell_queue: A better implementation of of doorbell obj
     # doorbell_queue:LimitedQueue = LimitedQueue.LimitedQueue(10)
@@ -79,6 +84,15 @@ class ConsoleControl:
         self.tcp_connection = tcp.TCPcomm()
 
         self.__pause_tcp_conn = False
+
+        self.data_processor.connect_f2q(self.data_processor.rawDataRead ,
+                                        self.tcp_resp_data_queue)
+        
+        self.data_processor.setProcessor(self.processor_type,
+                                            window_duration=10,
+                                            window_start=0,
+                                            number_of_steps=200,
+                                            animated=True)
 
     def run(self):
         
@@ -157,7 +171,23 @@ class ConsoleControl:
                         elif(response_type == rs.SCPI_RESPONSE_TYPE.PREAMBLE):
                             self.my_oscilloscope.update_preamble(last_tcp_data)
 
+                    ## call make thread of the processor
+                    self.data_processor.makeThread_RawDataReader()
+
+                    ## get output queue of the prcoessor model
+                    output_q = self.data_processor.getOutputQueue()
                     
+                    
+                    if(not output_q.empty()): 
+                    # while(not output_q.empty()): 
+                        try: 
+                            current_job:controlAndProcess.MathProcess = output_q.get_nowait()
+                            if(current_job.is_process_alive()): 
+                                output_q.put(current_job)
+                            else: 
+                                print("con thread {}".format(current_job.get_response()))
+                        except: 
+                            pass 
                     dbg.flags.cond_print(self.tcp_resp_queue.qsize())
        
         except:
@@ -171,11 +201,13 @@ class ConsoleControl:
         return self.tcp_connection.get_last_data()
 
     def get_tcp_data(self):   
-        if(not self.tcp_resp_data_queue.empty()): 
-            data = self.tcp_resp_data_queue.get_nowait()
-            return data
-        else: 
-            return None
+        pass 
+        ## comment to test processor
+        # if(not self.tcp_resp_data_queue.empty()): 
+        #     data = self.tcp_resp_data_queue.get_nowait()
+        #     return data
+        # else: 
+        #     return None
 
     def get_tcp_preamble(self): 
         if(not self.tcp_preamble_queue.empty()): 

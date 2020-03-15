@@ -6,6 +6,7 @@ import time
 import Rigol_Lib.RigolSCPI as rs
 from TCPconnection import MessageIterables as mi
 import threading
+from Gui import controlAndProcess
 
 class FFTController:
     def __init__(self, data_tuple, 
@@ -124,3 +125,70 @@ class FFTControllerOscillAdapter:
             return mi.IterMessageList(self.fft_controller.get_frame_list()) 
         else: 
             return None 
+
+
+class FFTObserver(controlAndProcess.MathProcess): 
+    ## additional arguments for fft_observer is: 
+    ## window_duration
+    ## window_start
+    ## number of steps 
+    ## animated or single frame fft
+    def __init__(self , input_token , threaded=True , kwargs_dict={}): 
+        """
+            The class implements the math processor abstract class
+            the arguments in **kwargs are: 
+                window_duration 
+                window_start 
+                number_of_steps 
+                animated (if False means only one single frame of fft is calculated)
+        """
+        window_duration_text = 'window_duration'
+        window_start_text = 'window_start'
+        number_of_steps_text = 'number_of_steps'
+        animated_text = 'animated'
+
+        if(not window_duration_text in kwargs_dict or 
+            not window_start_text in kwargs_dict or 
+            not number_of_steps_text in kwargs_dict or 
+            not animated_text in kwargs_dict):
+            raise NecessaryArgNotPresent
+        
+        
+        
+        self.__window_duration = kwargs_dict[window_duration_text]
+        self.__window_start = kwargs_dict[window_start_text]
+        self.__number_of_steps = kwargs_dict[number_of_steps_text]
+        self.__animated = kwargs_dict[animated_text]
+
+        super().__init__(input_token , threaded)
+        ## The queue to hold fft responses as a function of their 
+        ## start time
+        self.__fft_frames_queue = queue.Queue()
+        self.__fft_calculator = FFTModule.FFTModule()
+
+
+    def get_response(self): 
+        ## in order to get a finished response, 
+        ## first the method is_process_alive from super class must be called
+        return self.__fft_frames_queue
+
+    def run_math_process(self): 
+        input_token:rs.cmdObj = self.input_token
+        x = input_token.get_parser().get_data_x()
+        y = input_token.get_parser().get_data_y()
+        
+        for i in np.linspace(0 , np.max(x) - self.__window_duration , num=self.__number_of_steps): 
+
+                        current_start = self.__window_start + i
+
+                        [fft_tuple , time_window_tuple] = self.__fft_calculator.get_fft((x,y), 
+                                                                                    self.__window_duration,
+                                                                                    current_start)
+                    
+                        
+                        self.__fft_frames_queue.put([fft_tuple , time_window_tuple])
+
+        
+
+class NecessaryArgNotPresent(Exception): 
+    pass 
