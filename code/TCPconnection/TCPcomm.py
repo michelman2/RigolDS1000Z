@@ -8,8 +8,6 @@ import typing
 import TransactionMeans.DoorBell as db
 import queue
 import tcp_queue
-from print_util import print_colors
-from termcolor import colored
 from decoder import SineCreator
 from debug import debug_instr as dbg
 from Rigol_Lib import RigolSCPI as rs 

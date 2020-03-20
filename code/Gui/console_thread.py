@@ -29,6 +29,11 @@ from debug import debug_instr as dbg
 from Rigol_util import Oscilloscope_model
 from Gui import controlAndProcess
 from decoder import FFTController
+from Gui import bundlePlotToGui
+from TransactionMeans import MeaningfulList
+from TransactionMeans import QueueUtil as qutil
+from Gui import historyExtractor
+from Gui import bundleManager
 
 class ConsoleControl: 
     """ 
@@ -39,31 +44,24 @@ class ConsoleControl:
         Can be launched in a second thread (the run method) when using gui applications
 
     """
-    ## Archaic: better to be implemented using Queue.queue (thread safe)
-    global doorbell_obj # doorbell objet is used between the thread running this class and the thread handling tcp connections
     
-
     command_counter = 0 
    
     data_processor = controlAndProcess.ProcessModel()
-    # processor_type = controlAndProcess.fftprocess
-    processor_type = FFTController.FFTObserver
-
-    ## doorbell_queue: A better implementation of of doorbell obj
-    # doorbell_queue:LimitedQueue = LimitedQueue.LimitedQueue(10)
 
     ## oscilloscope model holds the state of the oscilloscope at each time
-    my_oscilloscope:Oscilloscope_model.Oscilloscope = Oscilloscope_model.Oscilloscope(avaialable_ch=[rs.RIGOL_CHANNEL_IDX.CH3, 
-                                                                rs.RIGOL_CHANNEL_IDX.CH4])
+    my_oscilloscope:Oscilloscope_model.Oscilloscope = Oscilloscope_model.Oscilloscope(available_channels=[
+                                                                                        rs.RIGOL_CHANNEL_IDX.CH1,                   
+                                                                                        rs.RIGOL_CHANNEL_IDX.CH2, 
+                                                                                        rs.RIGOL_CHANNEL_IDX.CH3,
+                                                                                        rs.RIGOL_CHANNEL_IDX.CH4], 
+                                                                                    active_channels=[
+                                                                                        rs.RIGOL_CHANNEL_IDX.CH3,
+                                                                                        rs.RIGOL_CHANNEL_IDX.CH4
+                                                                                    ])
 
     ## maximum queue sizes: used for limited queue
     queue_max_size = 10
-    
-    ## A queue to hold all responses (preamable, data and fft) received over tcp
-    tcp_resp_queue = LimitedQueue.LimitedQueue(queue_max_size)
-
-    ## Where is it used ? 
-    fft_resp_queue = LimitedQueue.LimitedQueue(queue_max_size)
 
     ## A queue to hold tcp preamble responses (message passing between this obj thread and gui)
     tcp_preamble_queue = LimitedQueue.LimitedQueue(queue_max_size)
@@ -71,8 +69,22 @@ class ConsoleControl:
     ## A queue to hold tcp response data
     tcp_resp_data_queue = LimitedQueue.LimitedQueue(queue_max_size)
     
+    ## A queue to hold ready math processed queues
+    ready_math_process_q = LimitedQueue.LimitedQueue(queue_max_size)
+
+    ## Bundling grouper
+    bundle_group_holder = bundleManager.BundlersGroup()
+    # bundling_strategy = bundleManager.BundleById()
+    bundling_strategy = bundleManager.RowWiseBundler()
+    bundle_group_holder.set_bundler_strategy(bundling_strategy)
 
     def __init__(self):
+
+        ## create a list to hold all data bundler references
+        self.__bundles_to_canvas = MeaningfulList.MeaningfulList(row=self.my_oscilloscope.get_channel_cnt(),
+                                                                column=2)
+
+        
         # create doorbell object for message passing between main thread
         # and the single thread
         self.doorbell_obj = db.DoorBell()
@@ -88,11 +100,35 @@ class ConsoleControl:
         self.data_processor.connect_f2q(self.data_processor.rawDataRead ,
                                         self.tcp_resp_data_queue)
         
-        self.data_processor.setProcessor(self.processor_type,
+        self.data_processor.setProcessor(FFTController.FFTObserver,
                                             window_duration=10,
                                             window_start=0,
                                             number_of_steps=200,
                                             animated=True)
+
+        self.data_sifter = qutil.QueueSifter(input_queue=self.ready_math_process_q,
+                                                    sifting_categories=self.my_oscilloscope.get_channel_list())
+        
+        self.channel_sifted_q_list = self.data_sifter.get_out_queue_list()
+        
+        self.cmdObj_history_extractor = historyExtractor.cmdObjHistoryExctractor(history_depth=1)
+        
+        
+        for ch_idx in range(self.my_oscilloscope.get_channel_cnt()): 
+            for i in range(1): ## range(2): one for main data and the other for process
+                new_bundle = bundlePlotToGui.bundleFFTtoCanvas(id=[ch_idx , i])
+            
+                new_bundle.set_data_expander(data_expander=self.cmdObj_history_extractor)
+                new_bundle.connect_input_q(self.channel_sifted_q_list[ch_idx])
+                
+                self.bundle_group_holder.add_bundler(new_bundle)
+                
+    
+    def set_gui_canvas_observer(self , canvas_list): 
+        self.bundle_group_holder.set_canvas(canvas_list)
+        self.bundle_group_holder.bundle_all_to_canvas()
+        
+
 
     def run(self):
         
@@ -115,11 +151,12 @@ class ConsoleControl:
             self.my_oscilloscope.set_active_channel(rs.RIGOL_CHANNEL_IDX.CH4)
             last_cmd_preamble = False
             
-            preamble_ch_iterable = self.my_oscilloscope.get_channels_iterable()
+            preamble_ch_iterable = self.my_oscilloscope.get_active_channels_iterable()
 
             ## Main loop of the thread
             while(True):
                 time.sleep(0.1)
+                # print(self.ready_math_process_q.qsize())
                 if(self.pause_tcp_connection):                    
                     while(self.doorbell_obj.is_data_new()):
                         pass
@@ -161,13 +198,14 @@ class ConsoleControl:
                             y_offset = self.my_oscilloscope.get_channel_y_offset(last_tcp_data.get_active_channel())
                             x_orig = self.my_oscilloscope.get_x_orig()
                             
+
                             last_tcp_data.get_parser().set_y_scale_factor(y_sc_fact)
                             last_tcp_data.get_parser().set_x_origin(x_orig)
                             last_tcp_data.get_parser().set_y_offset(y_offset)
+
                             self.tcp_resp_data_queue.put(last_tcp_data)
 
-                            
-                            
+                                                        
                         elif(response_type == rs.SCPI_RESPONSE_TYPE.PREAMBLE):
                             self.my_oscilloscope.update_preamble(last_tcp_data)
 
@@ -175,21 +213,22 @@ class ConsoleControl:
                     self.data_processor.makeThread_RawDataReader()
 
                     ## get output queue of the prcoessor model
-                    output_q = self.data_processor.getOutputQueue()
+                    math_proc_out_q = self.data_processor.getOutputQueue()                    
                     
-                    
-                    if(not output_q.empty()): 
-                    # while(not output_q.empty()): 
+                    if(not math_proc_out_q.empty()): 
                         try: 
-                            current_job:controlAndProcess.MathProcess = output_q.get_nowait()
+                            current_job:controlAndProcess.MathProcess = math_proc_out_q.get_nowait()
                             if(current_job.is_process_alive()): 
-                                output_q.put(current_job)
+                                math_proc_out_q.put(current_job)
                             else: 
-                                print("con thread {}".format(current_job.get_response()))
+                                self.ready_math_process_q.put(current_job)
                         except: 
                             pass 
-                    dbg.flags.cond_print(self.tcp_resp_queue.qsize())
-       
+                    
+                    self.data_sifter.sift()
+
+                    self.bundle_group_holder.update_all()
+                    
         except:
             self.tcp_connection.close_conn() 
             raise 
@@ -197,17 +236,18 @@ class ConsoleControl:
         finally: 
             self.tcp_connection.close_conn()
 
+
     def get_data(self): 
         return self.tcp_connection.get_last_data()
 
-    def get_tcp_data(self):   
-        pass 
-        ## comment to test processor
-        # if(not self.tcp_resp_data_queue.empty()): 
-        #     data = self.tcp_resp_data_queue.get_nowait()
-        #     return data
-        # else: 
-        #     return None
+    # def get_tcp_data(self):   
+    #     pass 
+    #     ## comment to test processor
+    #     # if(not self.tcp_resp_data_queue.empty()): 
+    #     #     data = self.tcp_resp_data_queue.get_nowait()
+    #     #     return data
+    #     # else: 
+    #     #     return None
 
     def get_tcp_preamble(self): 
         if(not self.tcp_preamble_queue.empty()): 

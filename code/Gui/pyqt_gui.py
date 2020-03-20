@@ -15,7 +15,8 @@ import TCPconnection.TCPListener as tl
 
 from Rigol_util import channelDataKeeper as cld
 from Rigol_util import RigolCommander as rc
-from TransactionMeans import DoorBell as db 
+from TransactionMeans import DoorBell as db
+import TransactionMeans 
 import console_thread as ct
 import typing
 import numpy as np
@@ -64,12 +65,18 @@ class MainWindow(QtGui.QMainWindow):
     def plotter(self):
         self.data =[0]
         
-        # self.curve = self.login_widget.plot.getPlotItem().plot()
-
-        # self.timer = QtCore.QTimer()
+       
         self.timer.setInterval(40)
         self.timer.timeout.connect(self.updater)
         self.timer.start(0)
+
+    def getGraphCanvas(self): 
+        """ 
+            test: return only one graph instance of curves
+            When no test: returns a multidimensional list of curves in gui
+        """
+        # return self.login_widget.getCurves()[0][0]
+        return self.login_widget.getCurves()
     
     def updater(self):        
 
@@ -138,51 +145,51 @@ class MainWindow(QtGui.QMainWindow):
         
        
 
-    def set_observable(self , observable:ct.ConsoleControl): 
-        self.observable = observable
+    # def set_observable(self , observable:ct.ConsoleControl): 
+    #     self.observable = observable
 
-    def get_data_from_observable(self):
-        time.sleep(1)
-        while(True): 
-            time.sleep(0.1)
-            ## try to read data from data queue
-            try: 
-                self.oscilloscope_data:rs.cmdObj = self.observable.get_tcp_data()                
+    # def get_data_from_observable(self):
+    #     time.sleep(1)
+    #     while(True): 
+    #         time.sleep(0.1)
+    #         ## try to read data from data queue
+    #         try: 
+    #             self.oscilloscope_data:rs.cmdObj = self.observable.get_tcp_data()                
 
             
-                if(self.oscilloscope_data != None): 
+    #             if(self.oscilloscope_data != None): 
                 
-                    if(self.fourier_dispatched_queue.has_space()): 
-                        if(dbg.flags.LOOPBACK): 
-                            fft_object = FFTController.FFTControllerOscillAdapter(self.oscilloscope_data,
-                                                                                window_duration=100,
-                                                                                window_start_time=0,
-                                                                                number_of_steps =200,
-                                                                                animated=True)
+    #                 if(self.fourier_dispatched_queue.has_space()): 
+    #                     if(dbg.flags.LOOPBACK): 
+    #                         fft_object = FFTController.FFTControllerOscillAdapter(self.oscilloscope_data,
+    #                                                                             window_duration=100,
+    #                                                                             window_start_time=0,
+    #                                                                             number_of_steps =200,
+    #                                                                             animated=True)
                         
-                        else:
-                            fft_object = FFTController.FFTControllerOscillAdapter(self.oscilloscope_data,
-                                                                                window_duration=100,
-                                                                                window_start_time=0,
-                                                                                number_of_steps=200,
-                                                                                animated=True)
+    #                     else:
+    #                         fft_object = FFTController.FFTControllerOscillAdapter(self.oscilloscope_data,
+    #                                                                             window_duration=100,
+    #                                                                             window_start_time=0,
+    #                                                                             number_of_steps=200,
+    #                                                                             animated=True)
 
                         
-                        fft_object.start_calc_thread()
+    #                     fft_object.start_calc_thread()
                         
                     
-                        self.fourier_dispatched_queue.put(fft_object)
+    #                     self.fourier_dispatched_queue.put(fft_object)
 
-            except:
-                raise
-                pass 
+    #         except:
+    #             raise
+    #             pass 
 
-            ## try to read data from preamble queue
-            try: 
-                self.oscilloscope_preamble:rs.cmdObj = self.observable.get_tcp_preamble()
+    #         ## try to read data from preamble queue
+    #         try: 
+    #             self.oscilloscope_preamble:rs.cmdObj = self.observable.get_tcp_preamble()
 
-            except: 
-                pass
+    #         except: 
+    #             pass
             
 
     def read_fourier_list(self):
@@ -273,7 +280,7 @@ class LoginWidget(QtGui.QWidget):
 
 if __name__ == '__main__':
     try: 
-        console = ct.ConsoleControl()
+        console:ct.ConsoleControl = ct.ConsoleControl()
         console_instance = threading.Thread(target=console.run)
         console_instance.daemon = True      
 
@@ -281,23 +288,26 @@ if __name__ == '__main__':
 
         app = QtGui.QApplication([])
         window = MainWindow()
-        window.set_observable(console)
+        # window.set_observable(console)
 
+        ## Create a MeaningfulList from Canvas
+        canvas_list = TransactionMeans.MeaningfulList.MeaningfulList.from_list(window.getGraphCanvas())
+        console.set_gui_canvas_observer(canvas_list)
 
         fourier_checker_thread = threading.Thread(target=window.read_fourier_list)
         fourier_checker_thread.daemon = True
         # fourier_checker_thread.start()
 
-        get_observable_data = threading.Thread(target=window.get_data_from_observable)
-        get_observable_data.daemon = True 
-        # get_observable_data.start()
+        # get_observable_data = threading.Thread(target=window.get_data_from_observable)
+        # get_observable_data.daemon = True 
+        
 
 
         window.show()
         
        
         fourier_checker_thread.start()
-        get_observable_data.start()
+        # get_observable_data.start()
         console_instance.start()
         
 
@@ -305,6 +315,7 @@ if __name__ == '__main__':
         
     except: 
         # console.finalize_console()
+        raise
         pass
     finally: 
         # console.finalize_console()

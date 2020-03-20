@@ -31,7 +31,6 @@ class MathProcess(abc.ABC):
         """
             Runs the math process to function on data 
         """
-        # self.__resp = self.__input_token * 2
         pass 
 
 class fftprocess(MathProcess): 
@@ -123,7 +122,7 @@ class ProcessModel:
                     self.__output_processes_queue.put(math_proc)
                     
                 except: 
-                    raise
+                    # raise
                     pass 
         except: 
             raise

@@ -1,6 +1,8 @@
 import enum 
 from debug import debug_instr as dbg
 import numpy as np
+import abc
+from TransactionMeans import QueueUtil as qutil
 
 class RIGOL_WAVEFORM_FORMAT(enum.Enum): 
     WORD = 0 
@@ -234,18 +236,43 @@ class EXC_IMPROPER_PARAMETER(Exception):
 class EXC_METHOD_NOT_IMPLEMENTED(Exception): 
     pass
 
+class IcmdParsedObj(abc.ABC): 
+    def __init__(self): 
+        pass
+
+    
+        
+    @abc.abstractmethod
+    def get_channel(self)->RIGOL_CHANNEL_IDX: 
+        pass 
+
+    @abc.abstractmethod
+    def get_response_type(self)->SCPI_RESPONSE_TYPE: 
+        pass 
+
+    @abc.abstractmethod
+    def get_data_x(self):
+        pass 
+
+    @abc.abstractmethod
+    def get_data_y(self): 
+        pass 
+
+    
 
 
-class cmdObj: 
-    answer = ""
-    __parser = None
-    __active_channel_for_cmd = None
-
-
+class cmdObj(qutil.IQueueSiftableObject): 
+   
     def __init__(self , cmd_string, needs_answer): 
+        self.__answer = ""
+        self.__parser = None
+        self.__active_channel_for_cmd = None 
         self.__cmd = cmd_string
         self.__needs_answer = needs_answer
        
+        ## The cmdObjs can be stacked together 
+        ## with the core object's previous_cmd_obj_being None 
+        self.__previous_cmd_obj = None
 
     def needs_answer(self): 
         return self.__needs_answer
@@ -253,17 +280,16 @@ class cmdObj:
     def get_cmd(self): 
         return self.__cmd
 
-
     def set_answer(self , answer:str):
         parser:cmdParsedObj = self.get_parser()
         if(parser == None): 
-            self.__parser = cmdParsedObj(self.answer)
+            self.__parser = cmdParsedObj(self.__answer)
         else:
-            self.answer = answer
+            self.__answer = answer
             parser.set_parser_answer(answer)
             
     def get_answer(self): 
-        return self.answer
+        return self.__answer
         
     def get_parser(self): 
         if(self.__parser == None):            
@@ -277,9 +303,72 @@ class cmdObj:
     def get_active_channel(self)->RIGOL_CHANNEL_IDX: 
         return self.__active_channel_for_cmd
 
+    def get_previous_cmd_step(self): 
+        return self.__previous_cmd_obj
+
+    def clone_to_cmdParseClone(self , new_x , new_y , added_info={}): 
+        """
+            clones the object with custom x and y  
+        """
+
+        cloned_obj = cmdObj(self.__cmd , self.__needs_answer)
+        current_parser = self.get_parser()
+
+        ## parser of the new object holds processed information
+        ## the reference to the previous cmd_obj holds one step before processing
+        cloned_obj.__parser:IcmdParsedObj = cmdParseCloneObj(
+                                            x=new_x ,
+                                            y=new_y,
+                                            channel=current_parser.get_channel(),
+                                            response_type=current_parser.get_response_type(),
+                                            additional_info=added_info)
+        
+    
+        cloned_obj.__previous_cmd_obj = self
+
+        return cloned_obj
+
+    def get_sifting_parameter(self):
+        if(self.__parser == None): 
+            raise qutil.SiftingCharNotFound
+
+        return self.__parser.get_channel()
+
+class cmdParseCloneObj(IcmdParsedObj): 
+    
+    def __init__(self , x , y , channel , response_type, additional_info={}):
+        self.__x = x 
+        self.__y = y 
+        self.__channel = channel
+        self.__response_type = response_type
+        self.__additional_info = additional_info
+        
+    
+    def get_channel(self)->RIGOL_CHANNEL_IDX: 
+        return self.__channel
 
 
-class cmdParsedObj: 
+    def get_response_type(self)->SCPI_RESPONSE_TYPE: 
+        return self.__response_type
+
+
+    def get_data_x(self):
+        return self.__x  
+
+
+    def get_data_y(self): 
+        return self.__y
+
+
+    def get_additional_info(self)->dict:
+        """ 
+            Returns additional keyworded info 
+        """ 
+        return self.__additional_info
+
+
+
+class cmdParsedObj(IcmdParsedObj): 
     """
         Class holding parse inforamation of a response received 
         from oscilloscope 
@@ -292,10 +381,12 @@ class cmdParsedObj:
     __x_origin = 0 
 
     def __init__(self , received_resp=None):
+        self.channel = None 
         if(received_resp != None): 
             self.__received_resp = received_resp
             self.__parse()
     
+
     def set_parser_answer(self , received_resp:str): 
         
         self.__received_resp = received_resp
@@ -485,6 +576,7 @@ class cmdParsedObj:
         """
         self.__x_origin = x_orig
 
+   
     
 class RigolSCPI: 
     def autoscale(self): 
