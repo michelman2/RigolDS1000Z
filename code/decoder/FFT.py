@@ -1,12 +1,14 @@
 import threading 
 from threading import Lock
 import numpy as np
+import logging 
 
+main_logger = logging.getLogger("main_logger")
 
 fft_lock = Lock()
 
 
-class FFTModule: 
+class FFT: 
 
     def __init__(self): 
         pass
@@ -28,6 +30,9 @@ class FFTModule:
         if(window_start_time > tuple_time[-1] - window_duration): 
             window_start_time = tuple_time[-1] - window_duration
             
+        # main_logger.info("window_start_time {}".format(window_start_time))
+        # main_logger.info("tuple_time_-1: {}".format(tuple_time[-1]))
+        # main_logger.info("winduration: {}".format(window_duration))
 
         ## TODO: handle error 
         if(window_start_time < 0): 
@@ -54,7 +59,6 @@ class FFTModule:
         
         freq = np.linspace(0 , 1/T , N)
         fft = np.fft.fft(windowed_val)
-        ## the return value is as follows: 
-        ## [(fft x , fft y) , (fft win start time , fft win end time)]
+        
         return [(freq[:N//2] , np.abs(fft[:N//2])*(1/N)) , (windowed_time[0] , windowed_time[-1])]
         

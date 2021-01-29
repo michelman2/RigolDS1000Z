@@ -3,6 +3,7 @@ from debug import debug_instr as dbg
 import numpy as np
 import abc
 from TransactionMeans import QueueUtil as qutil
+import logging
 
 class RIGOL_WAVEFORM_FORMAT(enum.Enum): 
     WORD = 0 
@@ -521,7 +522,7 @@ class cmdParsedObj(IcmdParsedObj):
         """
             returns the x value of parsed data from response (if the response
             is data pair)
-        """ 
+        """
         return list(np.add(np.multiply(self.data_idx , self.__x_scale_factor) , self.__x_origin))
 
     def get_data_y(self): 

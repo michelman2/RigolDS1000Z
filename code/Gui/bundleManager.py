@@ -1,7 +1,7 @@
 from TransactionMeans import MeaningfulList
 import abc
 from Gui import bundlePlotToGui
-from MessageIterables import IterMessageList
+from TransactionMeans import MessageCarrier
 
 class BundlingStrategy(abc.ABC): 
 
@@ -72,7 +72,12 @@ class BundlersGroup:
             self.__invalidate_iterator()
         except: 
             pass 
-    
+
+    def set_bundlers_list(self , bundlers_list): 
+        for bundler in bundlers_list: 
+            self.__bundlers_group.append(bundler)
+        
+        self.__invalidate_iterator()
 
     def set_bundler_strategy(self , strate:BundlingStrategy): 
         self.__bundling_strategy = strate

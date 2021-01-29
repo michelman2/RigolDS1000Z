@@ -7,6 +7,10 @@ from Gui import controlAndProcess
 from TransactionMeans import LimitedQueue
 import sys
 
+import logging 
+import pickle 
+main_logger = logging.getLogger("main_logger")
+
 class IbundlePlotToGui(abc.ABC): 
     def __init__(self, id ,  threaded=True): 
         """
@@ -97,38 +101,6 @@ class IbundleSyncPlotsToGui(IbundlePlotToGui):
         pass
 
 
-##############
-# class canvasUpdaterTimer(IbundlePlotToGui): 
-#     """
-#         A decorator for the IbundlePlots to manage referesh rate
-#         of a graph 
-#     """
-#     def __init__(self , bundler_to_gui:IbundlePlotToGui): 
-#         ## The time to pass to activate next action
-#         self.__min_interval_duration = 0
-#         self.__start_time = time.time()
-#         self.__IbundlePlotToGui_instance:IbundlePlotToGui = bundler_to_gui
-
-#     def set_canvas_data(self): 
-#         self.__IbundlePlotToGui_instance.set_canvas_data()
-
-#     def startBundling(self): 
-#         """
-#             first checks the timer, if the minimum interval is passed, 
-#             it calls the bundler 
-#         """
-#         current_time = time.time()
-#         if(current_time >= self.__start_time + self.__min_interval_duration):
-#             self.__start_time = current_time
-#             self.__IbundlePlotToGui_instance.startBundling()
-
-#         else: 
-#             pass  
-
-#     def set_min_interval_duration(self , seconds:float): 
-#         if(seconds >= 0): 
-#             self.__min_interval_duration = seconds    
-
 
 class bundleFFTtoCanvas(IbundleSyncPlotsToGui): 
     def __init__(self, id , threaded = True): 
@@ -137,7 +109,6 @@ class bundleFFTtoCanvas(IbundleSyncPlotsToGui):
 
     def set_canvas_data(self): 
         
-        # canvas = self.canvas_ref
         in_queue:queue.Queue = self.input_q
 
         try: 
@@ -149,13 +120,18 @@ class bundleFFTtoCanvas(IbundleSyncPlotsToGui):
                 try:
                     cmd_history = self.data_expander.expand_data(frame)
                     cmd_len = len(cmd_history)
-                    for idx , canvas in enumerate(self.canvas_ref): 
+                    
+                    for idx , canvas in enumerate(self.canvas_ref):
+                        
                         current_frame = cmd_history[cmd_len - 1 - idx]                    
                         
                         data_x = current_frame.get_parser().get_data_x()
                         data_y = current_frame.get_parser().get_data_y()
                         
+                        
                         canvas.setData(data_x , data_y)
+
+                        
 
                 except: 
                     
@@ -163,14 +139,68 @@ class bundleFFTtoCanvas(IbundleSyncPlotsToGui):
                     print(exc_value)
                     raise
 
-                time.sleep(0.04)
+                time.sleep(0.05)
             
         except:
             # raise 
             pass  
+
+class bundleNoChangeToCanvas(IbundleSyncPlotsToGui): 
+    previous_time = 0 
+
+    def __init__(self, id , threaded = True): 
+        super().__init__(id , threaded=threaded)
         
 
-    
+    def set_canvas_data(self): 
+        
+        in_queue:queue.Queue = self.input_q
+
+        try: 
+            token:controlAndProcess.MathProcess = in_queue.get_nowait()
+            frame_group:queue.Queue = token.get_response()
+            
+            while(not frame_group.empty()):
+                frame:rs.cmdObj = frame_group.get() 
+                try:
+                    cmd_history = [frame]
+                    # cmd_history = self.data_expander.expand_data(frame)
+                    cmd_len = len(cmd_history)
+                    
+                    for idx , canvas in enumerate(self.canvas_ref):
+                        
+                        current_frame = cmd_history[0]                    
+                        
+                        data_x = current_frame.get_parser().get_data_x()
+                        data_y = current_frame.get_parser().get_data_y()
+                        
+                        current_time = time.time() 
+                        if(current_time - bundleNoChangeToCanvas.previous_time > 1): 
+                            bundleNoChangeToCanvas.previous_time = current_time
+                            data_dict = {"x":data_x , "y":data_y , "srate":5000000}
+                            base_addr = "D:/Academic/My projects/3.LuxLink+/CommLink/Initial results/sampling/shutter_3x/"
+                            name = str(int(time.time())) + "_low_freq_pulse_3_shutters,{}".format(current_frame.get_active_channel()) + ".pickle"
+                            full_addr = base_addr + name
+                            pickle_out = open(full_addr,"wb")
+                            pickle.dump(data_dict, pickle_out)
+                            pickle_out.close() 
+                        canvas.setData(data_x , data_y)
+
+                        
+
+                except: 
+                    
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    print(exc_value)
+                    raise
+
+                time.sleep(0.05)
+            
+        except:
+            # raise 
+            pass  
+
+
 
 class NoCanvasSet(Exception): 
     pass

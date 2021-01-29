@@ -2,3 +2,8 @@ Include/
 Lib/
 Scripts/
 pyvenv.cfg
+cmd.exe
+osc manual/
+
+**/__pychache__/
+*.pyc

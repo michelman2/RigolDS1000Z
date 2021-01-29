@@ -1,6 +1,6 @@
 import sys
 import os
-
+from pathlib import Path
 """ 
     The file makes paths avaiable to python interpreter
     has to be added before using a project hierarchy
@@ -20,3 +20,9 @@ def add_subfolder_to_path( project_base_folder):
         else: 
             sys.path.insert(1 , folder_subfolders)
 
+
+
+
+
+path = Path(os.getcwd()).parent
+add_subfolder_to_path(path)

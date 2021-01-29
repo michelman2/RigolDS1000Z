@@ -45,7 +45,7 @@ class fftprocess(MathProcess):
         return self.__response 
 
 
-class ProcessModel: 
+class MathProcessController: 
     """ 
         Model multithreaded processor. 
         The model has a mathematical processor that needs to be set. 

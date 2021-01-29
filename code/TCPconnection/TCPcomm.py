@@ -1,45 +1,40 @@
 import socket 
 import threading
 import enum
-import MessageIterables as mes_iter
+from TransactionMeans import MessageCarrier
 import time 
 from inspect import getframeinfo , currentframe
 import typing
 import TransactionMeans.DoorBell as db
 import queue
-import tcp_queue
 from decoder import SineCreator
 from debug import debug_instr as dbg
 from Rigol_Lib import RigolSCPI as rs 
 from Loopback_util import RigolOscillLB
 
+
 class TCPcomm(threading.Thread):    
     """
         manages tcp communication operations
     """
-    
-    if(dbg.flags.LOOPBACK): 
-        print("Warning loopback MODE ON in TCP COMM")
-    
-
-    TIME_OUT = 0.00
+    TIME_OUT = 0 
   
-    def __init__(self):
+    def __init__(self, ip , port , buff_size = 250000, single_run = False):
         """
             initializing network connections and settings
             the ip is the autoip assigned to the rigol oscilloscope 
         """
-        self.__s = None 
-        self.__buffer_size = 250000
-        self.__ip = '169.254.16.79'
-        self.__port = 5555
-        self.__data_ready_list = []
-        self.__data_lock = threading.Lock()
-        self.__port_listener_list = []
-        self.__recv_data_queue = queue.Queue()
-        self.__recv_queue_max_limit = 20
-        # self.__recv_data_queue = tcp_queue.tcp_queue(queue_space_limit=5)
-
+        self._s = None 
+        self._buffer_size = buff_size
+        self._ip = ip 
+        self._port = port 
+        self._is_single_run = single_run
+        self._data_ready_list = []
+        self._data_lock = threading.Lock()
+        self._port_listener_list = []
+        self._recv_data_queue = queue.Queue()
+        self._recv_queue_max_limit = 20
+        
 
 
     def send_receive_thread(self , doorbell_obj:db.DoorBell):
@@ -60,25 +55,24 @@ class TCPcomm(threading.Thread):
 
             ## the message iterator (mi) is filled with instructions of rigol
             if(mi != None):
-                dbg.flags.cond_print("rec queue size : {}".format(self.__recv_data_queue.qsize()))
-                if(self.__recv_data_queue.qsize() > self.__recv_queue_max_limit):
-                    self.__recv_data_queue.get()
-                while(mi.has_next()): 
-                    next_instr:rs.cmdObj = mi.next()
+                dbg.flags.cond_print("rec queue size : {}".format(self._recv_data_queue.qsize()))
+                if(self._recv_data_queue.qsize() > self._recv_queue_max_limit):
+                    self._recv_data_queue.get()
+                for next_instr in mi: 
+               
                     command_str = next_instr.get_cmd()
-                    # print(command_str)
-                    self.__s.send(command_str.encode())
+                    self._s.send(command_str.encode())
                     dbg.flags.cond_print(command_str)
                     
                     if(next_instr.needs_answer()):
                         try: 
-                            self.__s.settimeout(0.3)
+                            self._s.settimeout(0.3)
 
-                            data = self.__s.recv(self.__buffer_size)
+                            data = self._s.recv(self._buffer_size)
                             
                             next_instr.set_answer(data)
                             
-                            self.__recv_data_queue.put(next_instr)
+                            self._recv_data_queue.put(next_instr)
                             dbg.flags.cond_print("after_queue")
                             
                         except: 
@@ -86,22 +80,22 @@ class TCPcomm(threading.Thread):
                             time.sleep(0.1)
                             dbg.flags.cond_print("missed first wait try")
                             try: 
-                                data = self.__s.recv(self.__buffer_size)
+                                data = self._s.recv(self._buffer_size)
                                 
                                 dbg.flags.cond_print("data")
                                 next_instr.set_answer(data)
-                                # self.__recv_data_queue.put(data)
-                                self.__recv_data_queue.put(next_instr)
+                                # self._recv_data_queue.put(data)
+                                self._recv_data_queue.put(next_instr)
                                 
                             except: 
                                 time.sleep(0.2)
                                 dbg.flags.cond_print("missed second wait try")
                                 try: 
-                                    data = self.__s.recv(self.__buffer_size)
+                                    data = self._s.recv(self._buffer_size)
                                     
                                     next_instr.set_answer(data)
-                                    # self.__recv_data_queue.put(data)
-                                    self.__recv_data_queue.put(next_instr)
+                                    # self._recv_data_queue.put(data)
+                                    self._recv_data_queue.put(next_instr)
                                     
                                 except:
                                     dbg.flags.cond_print("missed third wait try")
@@ -114,8 +108,8 @@ class TCPcomm(threading.Thread):
 
     def get_last_data(self):
         dbg.flags.cond_print("in get last data") 
-        # if(not self.__recv_data_queue.empty()): 
-        return self.__recv_data_queue.get()
+        # if(not self._recv_data_queue.empty()): 
+        return self._recv_data_queue.get()
         # else: 
         #     return None 
 
@@ -123,23 +117,14 @@ class TCPcomm(threading.Thread):
     def subscribe_listener(self , listener): 
         ## A listener is an object that implements an inform() method
         ## and can reuest subscription to the tcp comm object
-        with self.__data_lock: 
-            self.__port_listener_list.append(listener)
-
-    def inform_listeners(self): 
-        ## in this function, the listener objects that have subscribed to the tcp comm object, 
-        #  are informed that a new data is put in the list
-        
-        for listener in self.__port_listener_list: 
-            # listener.empty_and_inform()
-            listener.inform()
-            # listener.inform_last()
+        with self._data_lock: 
+            self._port_listener_list.append(listener)
 
    
     def get_data(self): 
         
-        if(self.__recv_data_queue.qsize()>0): 
-            return self.__recv_data_queue.get()
+        if(self._recv_data_queue.qsize()>0): 
+            return self._recv_data_queue.get()
         else: 
             return None 
         
@@ -152,35 +137,33 @@ class TCPcomm(threading.Thread):
         
         try: 
             if(dbg.flags.LOOPBACK): 
-                self.__s = RigolOscillLB.RigolOscillLB()
+                self._s = RigolOscillLB.RigolOscillLB()
 
             else:
-                self.__s = socket.socket(socket.AF_INET , socket.SOCK_STREAM)
-                self.__s.setblocking(1)          
-                self.__s.connect((self.__ip , self.__port))
-                self.__s.settimeout(self.TIME_OUT)
+                self._s = socket.socket(socket.AF_INET , socket.SOCK_STREAM)
+                self._s.setblocking(1)          
+                self._s.connect((self._ip , self._port))
+                self._s.settimeout(self.TIME_OUT)
 
         except:
-            if(self.__s != None): 
-                self.__s.close()
+            if(self._s != None): 
+                self._s.close()
             raise 
 
     def close_conn(self): 
-        self.__s.close()
+        self._s.close()
         
     def set_ip(self , ip):
-        self.__ip = ip
+        self._ip = ip
 
     def set_port(self , port): 
-        self.__port = port
+        self._port = port
 
     def set_buffer_size(self , buffer_size): 
-        self.__buffer_size = buffer_size
-
-    def set_message(self , message):
-        if(not isinstance(message , mes_iter.MessageIterable)): 
-            raise TypeError
+        self._buffer_size = buffer_size
 
 
          
+
+
         

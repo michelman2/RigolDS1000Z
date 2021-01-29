@@ -1,27 +1,16 @@
-import add_path
-add_path.add_subfolder_to_path("D:\\Academic\\General purpose\\communication stack\\rigol\\code")
+import __init__
 
-import matplotlib
-matplotlib.use('TkAgg')
-import numpy as np
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
-from tkinter import *
 import threading
-import sys
-
 import Rigol_Lib.RigolSCPI as rs
-import TCPconnection.MessageIterables as mi
+import TransactionMeans.MessageCarrier as mi
 import TCPconnection.TCPcomm as tcp
-import TCPconnection.TCPListener as tl
 
-# from Rigol_util import RigolRespProc as rrp
 from Rigol_util import channelDataKeeper as cld
-# from Rigol_util import Rigol_plotter as Rigol_plotter
 from Rigol_util import RigolCommander as rc
 from TransactionMeans import DoorBell as db 
-from decoder import FFTModule
+
 from decoder import SineCreator
+from decoder import NochangeProcessor
 import time
 import queue
 from TransactionMeans import LimitedQueue
@@ -34,6 +23,9 @@ from TransactionMeans import MeaningfulList
 from TransactionMeans import QueueUtil as qutil
 from Gui import historyExtractor
 from Gui import bundleManager
+import logging 
+
+main_logger = logging.getLogger("main_logger")
 
 class ConsoleControl: 
     """ 
@@ -47,7 +39,7 @@ class ConsoleControl:
     
     command_counter = 0 
    
-    data_processor = controlAndProcess.ProcessModel()
+    data_processor = controlAndProcess.MathProcessController()
 
     ## oscilloscope model holds the state of the oscilloscope at each time
     my_oscilloscope:Oscilloscope_model.Oscilloscope = Oscilloscope_model.Oscilloscope(available_channels=[
@@ -56,30 +48,19 @@ class ConsoleControl:
                                                                                         rs.RIGOL_CHANNEL_IDX.CH3,
                                                                                         rs.RIGOL_CHANNEL_IDX.CH4], 
                                                                                     active_channels=[
+                                                                                        rs.RIGOL_CHANNEL_IDX.CH1,
+                                                                                        rs.RIGOL_CHANNEL_IDX.CH2,
                                                                                         rs.RIGOL_CHANNEL_IDX.CH3,
                                                                                         rs.RIGOL_CHANNEL_IDX.CH4
                                                                                     ])
 
-    ## maximum queue sizes: used for limited queue
-    queue_max_size = 10
-
-    ## A queue to hold tcp preamble responses (message passing between this obj thread and gui)
-    tcp_preamble_queue = LimitedQueue.LimitedQueue(queue_max_size)
-
-    ## A queue to hold tcp response data
-    tcp_resp_data_queue = LimitedQueue.LimitedQueue(queue_max_size)
     
-    ## A queue to hold ready math processed queues
+    queue_max_size = 10
+    tcp_preamble_queue = LimitedQueue.LimitedQueue(queue_max_size)
+    tcp_resp_data_queue = LimitedQueue.LimitedQueue(queue_max_size)
     ready_math_process_q = LimitedQueue.LimitedQueue(queue_max_size)
 
-    ## Bundling grouper
-    bundle_group_holder = bundleManager.BundlersGroup()
-    # bundling_strategy = bundleManager.BundleById()
-    bundling_strategy = bundleManager.RowWiseBundler()
-    bundle_group_holder.set_bundler_strategy(bundling_strategy)
-
     def __init__(self):
-
         ## create a list to hold all data bundler references
         self.__bundles_to_canvas = MeaningfulList.MeaningfulList(row=self.my_oscilloscope.get_channel_cnt(),
                                                                 column=2)
@@ -93,18 +74,20 @@ class ConsoleControl:
         self.rigol_commander = rc.RigolCommander()
 
         ## create tcp object: manages send, receive, connection
-        self.tcp_connection = tcp.TCPcomm()
+        self.tcp_connection = tcp.TCPcomm(ip='169.254.16.78' , port=5555)
 
         self.__pause_tcp_conn = False
 
         self.data_processor.connect_f2q(self.data_processor.rawDataRead ,
                                         self.tcp_resp_data_queue)
         
-        self.data_processor.setProcessor(FFTController.FFTObserver,
-                                            window_duration=10,
-                                            window_start=0,
-                                            number_of_steps=200,
-                                            animated=True)
+        # self.data_processor.setProcessor(FFTController.FFTController,
+        #                                     window_duration=10,
+        #                                     window_start=0,
+        #                                     number_of_steps=200,
+        #                                     animated=True)
+
+        self.data_processor.setProcessor(NochangeProcessor.NoChangeProcessor)
 
         self.data_sifter = qutil.QueueSifter(input_queue=self.ready_math_process_q,
                                                     sifting_categories=self.my_oscilloscope.get_channel_list())
@@ -112,34 +95,29 @@ class ConsoleControl:
         self.channel_sifted_q_list = self.data_sifter.get_out_queue_list()
         
         self.cmdObj_history_extractor = historyExtractor.cmdObjHistoryExctractor(history_depth=1)
-        
-        
-        for ch_idx in range(self.my_oscilloscope.get_channel_cnt()): 
-            for i in range(1): ## range(2): one for main data and the other for process
-                new_bundle = bundlePlotToGui.bundleFFTtoCanvas(id=[ch_idx , i])
-            
-                new_bundle.set_data_expander(data_expander=self.cmdObj_history_extractor)
-                new_bundle.connect_input_q(self.channel_sifted_q_list[ch_idx])
-                
-                self.bundle_group_holder.add_bundler(new_bundle)
-                
     
-    def set_gui_canvas_observer(self , canvas_list): 
-        self.bundle_group_holder.set_canvas(canvas_list)
-        self.bundle_group_holder.bundle_all_to_canvas()
         
+        self._bundler_list = []
+        for ch_idx in range(self.my_oscilloscope.get_channel_cnt()): 
+            # new_bundle = bundlePlotToGui.bundleFFTtoCanvas(id=ch_idx)
+            new_bundle = bundlePlotToGui.bundleNoChangeToCanvas(id=ch_idx)
 
+            new_bundle.set_data_expander(data_expander=self.cmdObj_history_extractor)
+            new_bundle.connect_input_q(self.channel_sifted_q_list[ch_idx])
+            
+            self._bundler_list.append(new_bundle)
+            
+        
+    def get_data_gui_bundlers(self): 
+        return self._bundler_list
 
     def run(self):
         
         try:
-            ## create commands: 
             cmd_initiate_oscilloscope = self.rigol_commander.initalize_data_query_byte(rs.RIGOL_CHANNEL_IDX.CH4)
             cmd_ask_data_oscilloscope = self.rigol_commander.ask_oscilloscope_for_data()
-            ## join two commands: 
             cmd_initiate_oscilloscope.append(cmd_ask_data_oscilloscope)
 
-            # ## start a tcp connection
             self.tcp_connection.establish_conn()
 
             ## we only have two threads: 1 main and the other one for tcpip
@@ -155,32 +133,32 @@ class ConsoleControl:
 
             ## Main loop of the thread
             while(True):
-                time.sleep(0.1)
+                time.sleep(0.4)
                 # print(self.ready_math_process_q.qsize())
                 if(self.pause_tcp_connection):                    
                     while(self.doorbell_obj.is_data_new()):
+                        time.sleep(0.1)
                         pass
 
-                    ## The next available channel is requested from the oscilloscope
+                    
                     latest_channel = self.my_oscilloscope.get_next_channel()
-                    ## Active channel in the oscilloscope is changed osc model is not thread safe
                     self.my_oscilloscope.set_active_channel(latest_channel)
                     
-                    if(True): 
-                        ## set to send preamble code each 7 instrcts 
-                        self.command_counter += 1
-                       
-                        cmd_initiate_oscilloscope = self.rigol_commander.initalize_data_query_byte(latest_channel)
-                        cmd_ask_data_oscilloscope = self.rigol_commander.ask_oscilloscope_for_data()
-                        cmd_initiate_oscilloscope.append(cmd_ask_data_oscilloscope) 
-                        self.doorbell_obj.put_data_to_doorbell(cmd_initiate_oscilloscope) 
-                        
+                    
+                    ## set to send preamble code each 7 instrcts 
+                    self.command_counter += 1
+                    
+                    cmd_initiate_oscilloscope = self.rigol_commander.initalize_data_query_byte(latest_channel)
+                    cmd_ask_data_oscilloscope = self.rigol_commander.ask_oscilloscope_for_data()
+                    cmd_initiate_oscilloscope.append(cmd_ask_data_oscilloscope) 
+                    self.doorbell_obj.put_data_to_doorbell(cmd_initiate_oscilloscope) 
+                    
                     ## send a request for preamble every 5 instructions, so as not to 
                     ## obstruct data acquisition                    
-                    if(self.command_counter > 3): 
-
+                    if(self.command_counter > 3):
                         self.command_counter = 0 
                         next_ch_preamb_request = preamble_ch_iterable.next()
+                        # main_logger.info("ch:request: {}".format(next_ch_preamb_request))
                         cmd_ask_preamble = self.rigol_commander.ask_for_preamble(next_ch_preamb_request)
                         self.doorbell_obj.put_data_to_doorbell(cmd_ask_preamble)
                     
@@ -189,7 +167,6 @@ class ConsoleControl:
                     last_tcp_data:rs.cmdObj = self.tcp_connection.get_data()
 
                     if(last_tcp_data != None):                         
-                        ## get response type
                         response_type = last_tcp_data.get_parser().get_response_type()
                         
                         if(response_type == rs.SCPI_RESPONSE_TYPE.DATA_PAIR):                            
@@ -209,7 +186,7 @@ class ConsoleControl:
                         elif(response_type == rs.SCPI_RESPONSE_TYPE.PREAMBLE):
                             self.my_oscilloscope.update_preamble(last_tcp_data)
 
-                    ## call make thread of the processor
+                  
                     self.data_processor.makeThread_RawDataReader()
 
                     ## get output queue of the prcoessor model
@@ -227,7 +204,6 @@ class ConsoleControl:
                     
                     self.data_sifter.sift()
 
-                    self.bundle_group_holder.update_all()
                     
         except:
             self.tcp_connection.close_conn() 
@@ -239,15 +215,6 @@ class ConsoleControl:
 
     def get_data(self): 
         return self.tcp_connection.get_last_data()
-
-    # def get_tcp_data(self):   
-    #     pass 
-    #     ## comment to test processor
-    #     # if(not self.tcp_resp_data_queue.empty()): 
-    #     #     data = self.tcp_resp_data_queue.get_nowait()
-    #     #     return data
-    #     # else: 
-    #     #     return None
 
     def get_tcp_preamble(self): 
         if(not self.tcp_preamble_queue.empty()): 

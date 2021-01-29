@@ -1,7 +1,7 @@
 import threading
 import typing
 from TransactionMeans import LimitedQueue
-from TCPconnection import MessageIterables as mi 
+from TransactionMeans import MessageCarrier 
 
 
 class DoorBell: 
@@ -32,7 +32,7 @@ class DoorBell:
 
 
 
-    def pick_data_from_doorbell(self)->mi.IterMessageList: 
+    def pick_data_from_doorbell(self)->MessageCarrier.IterMessageList: 
         try: 
             return self.lim_q.get_nowait()
         except: 

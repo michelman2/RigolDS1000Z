@@ -1,6 +1,6 @@
 
 import Rigol_Lib.RigolSCPI as rscpi
-import TCPconnection.MessageIterables as mi
+import TransactionMeans.MessageCarrier as mi
 
 """ 
 class rigol commander has the following responsibilities: 
